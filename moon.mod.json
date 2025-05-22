@@ -1,13 +1,13 @@
 {
   "name": "oboard/mio",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "deps": {
     "moonbitlang/x": "0.4.27"
   },
   "readme": "README.md",
-  "repository": "",
+  "repository": "https://github.com/oboard/mio",
   "license": "Apache-2.0",
-  "keywords": [],
-  "description": "",
+  "keywords": ["network", "http", "request", "response"],
+  "description": "A powerful HTTP networking package for MoonBit.",
   "source": "src"
 }
