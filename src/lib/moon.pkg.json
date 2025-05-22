@@ -1,0 +1,5 @@
+{
+    "targets": {
+        "mio_js.mbt": ["js"]
+    }
+}
