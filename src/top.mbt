@@ -8,6 +8,6 @@ fn main {
       println("Failed to fetch")
       return
     }
-    println(@json.parse?(a.data).or(""))
+    println(a.json?().or(""))
   })
 }

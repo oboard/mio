@@ -23,20 +23,16 @@ pub(all) enum FetchMode {
 } derive(ToJson, Show, Eq)
 
 ///|
-pub(all) struct FetchOptions {
-  request_method : String
-  body : String
-  headers : Map[String, String]
-  credentials : FetchCredentials
-  mode : FetchMode
-} derive(ToJson, Show, Eq)
-
-///|
 pub struct HttpResponse {
   mut statusCode : Int
   mut headers : Map[String, String]
   data : String
 } derive(ToJson, Show, Eq)
+
+///|
+pub fn HttpResponse::json(self : HttpResponse) -> Json!@json.ParseError {
+  @json.parse!(self.data)
+}
 
 ///|
 pub(all) enum HttpMethod {
@@ -53,7 +49,7 @@ pub(all) enum HttpMethod {
 
 ///|
 pub(all) struct HttpRequest {
-  method : HttpMethod
+  request_method : HttpMethod
   url : String?
   path : String
   query : String?
@@ -94,8 +90,28 @@ pub fn end(self : HttpResponse, _body : Json) -> Unit {
 ///|
 pub async fn fetch(
   url : String,
-  options? : FetchOptions
+  http_method? : HttpMethod,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
 ) -> HttpResponse!NetworkError {
+  let options : Map[String, Json] = {}
+  if http_method is Some(m) {
+    options.set("method", m.to_string().to_json())
+  }
+  if body is Some(b) {
+    options.set("body", b.to_json())
+  }
+  if headers is Some(h) {
+    options.set("headers", h.to_json())
+  }
+  if credentials is Some(c) {
+    options.set("credentials", c.to_json())
+  }
+  if mode is Some(m) {
+    options.set("mode", m.to_string().to_json())
+  }
   match
     @json.parse?(
       fetch_internal!([url.to_json(), options.to_json()].to_json().stringify()),
