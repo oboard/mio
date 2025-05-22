@@ -88,6 +88,153 @@ pub fn end(self : HttpResponse, _body : Json) -> Unit {
 }
 
 ///|
+pub async fn get(
+  url : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(url, http_method=HttpMethod::GET, headers?, credentials?, mode?)
+}
+
+///|
+pub async fn post(
+  url : String,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(
+    url,
+    http_method=HttpMethod::POST,
+    body?,
+    headers?,
+    credentials?,
+    mode?,
+  )
+}
+
+///|
+pub async fn put(
+  url : String,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(url, http_method=HttpMethod::PUT, body?, headers?, credentials?, mode?)
+}
+
+///|
+pub async fn delete(
+  url : String,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(
+    url,
+    http_method=HttpMethod::DELETE,
+    body?,
+    headers?,
+    credentials?,
+    mode?,
+  )
+}
+
+///|
+pub async fn patch(
+  url : String,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(
+    url,
+    http_method=HttpMethod::PATCH,
+    body?,
+    headers?,
+    credentials?,
+    mode?,
+  )
+}
+
+///|
+pub async fn options(
+  url : String,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(
+    url,
+    http_method=HttpMethod::OPTIONS,
+    body?,
+    headers?,
+    credentials?,
+    mode?,
+  )
+}
+
+///|
+pub async fn head(
+  url : String,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(
+    url,
+    http_method=HttpMethod::HEAD,
+    body?,
+    headers?,
+    credentials?,
+    mode?,
+  )
+}
+
+///|
+pub async fn connect(
+  url : String,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(
+    url,
+    http_method=HttpMethod::CONNECT,
+    body?,
+    headers?,
+    credentials?,
+    mode?,
+  )
+}
+
+///|
+pub async fn trace(
+  url : String,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  fetch!(
+    url,
+    http_method=HttpMethod::TRACE,
+    body?,
+    headers?,
+    credentials?,
+    mode?,
+  )
+}
+
+///|
 pub async fn fetch(
   url : String,
   http_method? : HttpMethod,
