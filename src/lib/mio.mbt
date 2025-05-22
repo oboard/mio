@@ -1,4 +1,7 @@
 ///|
+pub fn run(f : () -> Unit!Async) -> Unit = "%async.run"
+
+///|
 pub type! IOError  derive(Show)
 
 ///|
@@ -26,12 +29,22 @@ pub(all) enum FetchMode {
 pub struct HttpResponse {
   mut statusCode : Int
   mut headers : Map[String, String]
-  data : String
-} derive(ToJson, Show, Eq)
+  data : Bytes
+} derive(Show, Eq)
 
 ///|
 pub fn HttpResponse::json(self : HttpResponse) -> Json!@json.ParseError {
-  @json.parse!(self.data)
+  @json.parse!(self.text())
+}
+
+///|
+pub fn HttpResponse::unwrap_json(self : HttpResponse) -> Json {
+  self.json?().or(Json::null())
+}
+
+///|
+pub fn HttpResponse::text(self : HttpResponse) -> String {
+  @buffer.from_bytes(self.data).to_string()
 }
 
 ///|
@@ -57,11 +70,6 @@ pub(all) struct HttpRequest {
 } derive(ToJson, Show, Eq)
 
 ///|
-pub fn request(_fun : (HttpRequest, HttpResponse) -> Unit!Error) -> Unit!Error {
-  fail!("Invalid backend")
-}
-
-///|
 pub fn listen(_port : Int) -> Unit!Error {
   fail!("Invalid backend")
 }
@@ -83,32 +91,34 @@ pub fn writeHead(
 }
 
 ///|
-pub fn end(self : HttpResponse, _body : Json) -> Unit {
-  end_internal(self, _body)
-}
-
-///|
 pub async fn get(
   url : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(url, http_method=HttpMethod::GET, headers?, credentials?, mode?)
+  request!(url, http_method=HttpMethod::GET, headers?, credentials?, mode?)
 }
 
 ///|
 pub async fn post(
   url : String,
   body? : String,
+  data? : Json,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(
+  request!(
     url,
     http_method=HttpMethod::POST,
-    body?,
+    body=if data is Some(d) {
+      d.stringify()
+    } else if body is Some(b) {
+      b
+    } else {
+      ""
+    },
     headers?,
     credentials?,
     mode?,
@@ -123,7 +133,14 @@ pub async fn put(
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(url, http_method=HttpMethod::PUT, body?, headers?, credentials?, mode?)
+  request!(
+    url,
+    http_method=HttpMethod::PUT,
+    body?,
+    headers?,
+    credentials?,
+    mode?,
+  )
 }
 
 ///|
@@ -134,7 +151,7 @@ pub async fn delete(
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(
+  request!(
     url,
     http_method=HttpMethod::DELETE,
     body?,
@@ -152,7 +169,7 @@ pub async fn patch(
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(
+  request!(
     url,
     http_method=HttpMethod::PATCH,
     body?,
@@ -170,7 +187,7 @@ pub async fn options(
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(
+  request!(
     url,
     http_method=HttpMethod::OPTIONS,
     body?,
@@ -188,7 +205,7 @@ pub async fn head(
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(
+  request!(
     url,
     http_method=HttpMethod::HEAD,
     body?,
@@ -206,7 +223,7 @@ pub async fn connect(
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(
+  request!(
     url,
     http_method=HttpMethod::CONNECT,
     body?,
@@ -224,7 +241,7 @@ pub async fn trace(
   credentials? : FetchCredentials,
   mode? : FetchMode
 ) -> HttpResponse!NetworkError {
-  fetch!(
+  request!(
     url,
     http_method=HttpMethod::TRACE,
     body?,
@@ -235,7 +252,7 @@ pub async fn trace(
 }
 
 ///|
-pub async fn fetch(
+pub async fn request_buffer(
   url : String,
   http_method? : HttpMethod,
   body? : String,
@@ -261,7 +278,70 @@ pub async fn fetch(
   }
   match
     @json.parse?(
-      fetch_internal!([url.to_json(), options.to_json()].to_json().stringify()),
+      request_buffer_internal!(
+        [url.to_json(), options.to_json()].to_json().stringify(),
+      ),
+    ) {
+    Ok(
+      {
+        "headers": Object(headers),
+        "status": Number(status),
+        "data": Array(data),
+        ..
+      }
+    ) =>
+      HttpResponse::{
+        statusCode: status.to_int(),
+        headers: headers
+        .iter()
+        .map(fn(i : (String, Json)) -> (String, String) {
+          (i.0, i.1.as_string().or(""))
+        })
+        .to_array()
+        |> Map::from_array,
+        data: Bytes::from_array(
+          data.map(fn(i : Json) -> Byte {
+            i.as_number().or(0).to_int().to_byte()
+          }),
+        ),
+      }
+    _ => {
+      println("Error fetching url: " + url)
+      raise NetworkError
+    }
+  }
+}
+
+///|
+pub async fn request(
+  url : String,
+  http_method? : HttpMethod,
+  body? : String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!NetworkError {
+  let options : Map[String, Json] = {}
+  if http_method is Some(m) {
+    options.set("method", m.to_string().to_json())
+  }
+  if body is Some(b) {
+    options.set("body", b.to_json())
+  }
+  if headers is Some(h) {
+    options.set("headers", h.to_json())
+  }
+  if credentials is Some(c) {
+    options.set("credentials", c.to_json())
+  }
+  if mode is Some(m) {
+    options.set("mode", m.to_string().to_json())
+  }
+  match
+    @json.parse?(
+      request_text_internal!(
+        [url.to_json(), options.to_json()].to_json().stringify(),
+      ),
     ) {
     Ok(
       {
@@ -280,11 +360,40 @@ pub async fn fetch(
         })
         .to_array()
         |> Map::from_array,
-        data,
+        data: data.to_bytes(),
       }
     _ => {
       println("Error fetching url: " + url)
       raise NetworkError
     }
   }
+}
+
+///|
+pub async fn download(
+  url : String,
+  save_path? : String,
+  save_path_fn? : (Map[String, String]) -> String,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode
+) -> HttpResponse!Error {
+  let res = request!(
+    url,
+    http_method=HttpMethod::GET,
+    headers?,
+    credentials?,
+    mode?,
+  )
+  @fs.write_bytes_to_file!(
+    if save_path is Some(s) {
+      s
+    } else if save_path_fn is Some(f) {
+      f(res.headers)
+    } else {
+      "downloaded_file"
+    },
+    res.data,
+  )
+  res
 }

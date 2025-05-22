@@ -1,5 +1,13 @@
 {
     "targets": {
-        "mio_js.mbt": ["js"]
-    }
+        // "mio_wasm.mbt": ["wasm", "wasm-gc"],
+        "mio_js.mbt": ["js"],
+        "mio_native.mbt": ["native", "llvm"]
+    },
+    "import": [
+        {
+            "path": "moonbitlang/x/fs",
+            "alias": "fs"
+        }
+    ]
 }
