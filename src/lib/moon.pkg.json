@@ -1,8 +1,6 @@
 {
     "targets": {
-        // "mio_wasm.mbt": ["wasm", "wasm-gc"],
-        "mio_js.mbt": ["js"],
-        "mio_native.mbt": ["native", "llvm"]
+        "mio_js.mbt": ["js"]
     },
     "import": [
         {
