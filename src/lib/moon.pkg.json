@@ -1,11 +1,24 @@
 {
     "targets": {
+        "mio_native.mbt": ["native", "llvm"],
         "mio_js.mbt": ["js"]
     },
     "import": [
         {
             "path": "moonbitlang/x/fs",
             "alias": "fs"
+        },
+        {
+            "path": "illusory0x0/native",
+            "alias": "native"
         }
-    ]
+    ],
+    "warn-list": "-1-2-3-6",
+    "supported-targets": ["js", "native"],
+    "native-stub": ["mio_native.c"],
+    "link": {
+        "native": {
+            "cc-link-flags": "-lcurl"
+        }
+    }
 }

@@ -1,4 +1,4 @@
-extern "js" fn request_buffer_internal(args : String) -> String!Async =
+extern "js" fn request_buffer_internal_ffi(args : String) -> String!Async =
   #|async function(args, callback) {
   #|  const [url, options] = JSON.parse(args);
   #|  try {
@@ -24,7 +24,7 @@ extern "js" fn request_buffer_internal(args : String) -> String!Async =
   #|}
 
 ///|
-extern "js" fn request_text_internal(args : String) -> String!Async =
+extern "js" fn request_text_internal_ffi(args : String) -> String!Async =
   #|async function(args, callback) {
   #|  const [url, options] = JSON.parse(args);
   #|  try {

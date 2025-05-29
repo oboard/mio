@@ -278,7 +278,7 @@ pub async fn request_buffer(
   }
   match
     @json.parse?(
-      request_buffer_internal!(
+      request_buffer_internal_ffi!(
         [url.to_json(), options.to_json()].to_json().stringify(),
       ),
     ) {
@@ -339,7 +339,7 @@ pub async fn request(
   }
   match
     @json.parse?(
-      request_text_internal!(
+      request_text_internal_ffi!(
         [url.to_json(), options.to_json()].to_json().stringify(),
       ),
     ) {
