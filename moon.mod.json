@@ -3,7 +3,8 @@
   "version": "0.1.1",
   "deps": {
     "moonbitlang/x": "0.4.27",
-    "illusory0x0/native": "0.1.4"
+    "illusory0x0/native": "0.1.4",
+    "tonyfettes/encoding": "0.3.2"
   },
   "readme": "README.md",
   "repository": "https://github.com/oboard/mio",

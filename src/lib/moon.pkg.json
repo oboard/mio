@@ -11,6 +11,10 @@
         {
             "path": "illusory0x0/native",
             "alias": "native"
+        },
+        {
+            "path": "tonyfettes/encoding",
+            "alias": "encoding"
         }
     ],
     "warn-list": "-1-2-3-6",

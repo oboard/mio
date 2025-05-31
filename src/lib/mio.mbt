@@ -1,14 +1,14 @@
 ///|
-pub fn run(f : () -> Unit!Async) -> Unit = "%async.run"
+pub fn run(f : async () -> Unit) -> Unit = "%async.run"
 
 ///|
-pub type! IOError  derive(Show)
+pub type! IOError derive(Show)
 
 ///|
-pub type! NetworkError  derive(Show)
+pub type! NetworkError derive(Show)
 
 ///|
-pub type! ExecError  derive(Show)
+pub type! ExecError derive(Show)
 
 ///|
 pub(all) enum FetchCredentials {
