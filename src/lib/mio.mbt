@@ -397,3 +397,34 @@ pub async fn download(
   )
   res
 }
+
+///|
+test {
+  run(fn() {
+    if get?("https://echo.apifox.com/anything") is Ok(a) {
+      println(a.unwrap_json())
+    }
+  })
+}
+
+///|
+test {
+  run(fn() {
+    if post?("https://echo.apifox.com/anything", data={
+        "id": 12,
+        "name": "mio",
+      })
+      is Ok(a) {
+      println(a.unwrap_json())
+    }
+  })
+}
+
+///|
+test {
+  run(fn() {
+    if download?("https://api.github.com", save_path="api.json") is Ok(_) {
+      println("Downloaded")
+    }
+  })
+}

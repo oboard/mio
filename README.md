@@ -8,6 +8,23 @@ A powerful HTTP networking package for MoonBit.
 - JSON response parsing
 - File downloads
 - Async operations with `@mio.run`
+- Support for both native and JavaScript backends
+  - Native backend uses libcurl for HTTP requests
+  - JavaScript backend uses the Fetch API
+
+## Backend Support
+
+### Native Backend
+- Uses libcurl for HTTP requests
+- Supports all HTTP methods (GET, POST, PUT, DELETE, etc.)
+- Full file download capabilities
+- JSON parsing and handling
+
+### JavaScript Backend
+- Uses the Fetch API
+- Compatible with browser and Node.js environments
+- Supports all standard HTTP features
+- Seamless integration with web applications
 
 ## Usage Examples
 
@@ -36,3 +53,4 @@ A powerful HTTP networking package for MoonBit.
     println("Downloaded")
   }
 })
+```

@@ -247,7 +247,7 @@ static char* get_array_element(const char* json, int index) {
         return NULL;
     }
     
-    char* start = json + 1;  // 跳过开始的 '['
+    const char* start = json + 1;  // 跳过开始的 '['
     int current_index = 0;
     int depth = 0;
     
@@ -272,7 +272,7 @@ static char* get_array_element(const char* json, int index) {
     }
     
     // 找到元素的结束位置
-    char* end = start;
+    const char* end = start;
     depth = 0;
     while (*end && (depth > 0 || (*end != ',' && *end != ']'))) {
         if (*end == '[') depth++;
@@ -338,7 +338,7 @@ static FetchOptions parse_options(const char* json_str) {
         if (*json_str == ',') {
             json_str++;  // 跳过 ','
             // 找到选项对象的结束位置
-            char* end = json_str;
+            const char* end = json_str;
             int depth = 0;
             while (*end && (depth > 0 || (*end != ']'))) {
                 if (*end == '{') depth++;
