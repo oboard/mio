@@ -19,7 +19,7 @@
     ],
     "warn-list": "-1-2-3-6",
     "supported-targets": ["js", "native"],
-    "native-stub": ["mio_native.c"],
+    "native-stub": ["mio_native.c", "cJSON.c"],
     "link": {
         "native": {
             "cc-link-flags": "-lcurl"

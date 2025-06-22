@@ -23,7 +23,9 @@ extern "c" fn utf8_to_utf16le(
 ) -> @native.Ptr[Byte] = "utf8_to_utf16le"
 
 ///|
-pub async fn request_buffer_internal_ffi(args : String) -> String!NetworkError {
+pub async fn request_buffer_internal_ffi(
+  args : String
+) -> String raise NetworkError {
   println("[MB DEBUG] request_buffer_internal_ffi - Input args: " + args)
 
   // 使用 encoding 库将字符串转换为 UTF-8 字节
@@ -42,8 +44,7 @@ pub async fn request_buffer_internal_ffi(args : String) -> String!NetworkError {
   // 使用 CStr 转换为字节，然后使用 encoding 库解码为字符串
   let result_bytes = @native.CStr::unsafe_from_byte_ptr(result_ptr).to_bytes()
   // 去除末尾的 null 字符
-  let result = @encoding.decode?(result_bytes, encoding=UTF8)
-  match result {
+  match (try? @encoding.decode(result_bytes, encoding=UTF8)) {
     Ok(text) => {
       println("[MB DEBUG] request_buffer_internal_ffi - Response: " + text)
       @native.free(result_ptr)
@@ -58,7 +59,9 @@ pub async fn request_buffer_internal_ffi(args : String) -> String!NetworkError {
 }
 
 ///|
-pub async fn request_text_internal_ffi(args : String) -> String!NetworkError {
+pub async fn request_text_internal_ffi(
+  args : String
+) -> String raise NetworkError {
   // 使用 encoding 库将字符串转换为 UTF-8 字节
   let bytes = @encoding.encode(args, encoding=UTF8)
   let utf8_ptr = @native.unsafe_coerce(bytes)
@@ -70,8 +73,7 @@ pub async fn request_text_internal_ffi(args : String) -> String!NetworkError {
 
   // 使用 CStr 转换为字节，然后使用 encoding 库解码为字符串
   let result_bytes = @native.CStr::unsafe_from_byte_ptr(result_ptr).to_bytes()[0:-1] // 去除 \u{00}
-  let result = @encoding.decode?(result_bytes, encoding=UTF8)
-  match result {
+  match (try? @encoding.decode(result_bytes, encoding=UTF8)) {
     Ok(text) => {
       @native.free(result_ptr)
       text

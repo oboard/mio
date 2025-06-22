@@ -2,13 +2,13 @@
 pub fn run(f : async () -> Unit) -> Unit = "%async.run"
 
 ///|
-pub type! IOError derive(Show)
+pub suberror IOError derive(Show)
 
 ///|
-pub type! NetworkError derive(Show)
+pub suberror NetworkError derive(Show)
 
 ///|
-pub type! ExecError derive(Show)
+pub suberror ExecError derive(Show)
 
 ///|
 pub(all) enum FetchCredentials {
@@ -33,13 +33,13 @@ pub struct HttpResponse {
 } derive(Show, Eq)
 
 ///|
-pub fn HttpResponse::json(self : HttpResponse) -> Json!@json.ParseError {
-  @json.parse!(self.text())
+pub fn HttpResponse::json(self : HttpResponse) -> Json raise @json.ParseError {
+  @json.parse(self.text())
 }
 
 ///|
 pub fn HttpResponse::unwrap_json(self : HttpResponse) -> Json {
-  self.json?().or(Json::null())
+  (try? self.json()).or(Json::null())
 }
 
 ///|
@@ -70,8 +70,8 @@ pub(all) struct HttpRequest {
 } derive(ToJson, Show, Eq)
 
 ///|
-pub fn listen(_port : Int) -> Unit!Error {
-  fail!("Invalid backend")
+pub fn listen(_port : Int) -> Unit raise Error {
+  fail("Invalid backend")
 }
 
 ///|
@@ -96,8 +96,8 @@ pub async fn get(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(url, http_method=HttpMethod::GET, headers?, credentials?, mode?)
+) -> HttpResponse raise NetworkError {
+  request(url, http_method=HttpMethod::GET, headers?, credentials?, mode?)
 }
 
 ///|
@@ -108,8 +108,17 @@ pub async fn post(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(
+) -> HttpResponse raise NetworkError {
+  let mHeaders = {}
+  if headers is Some(h) {
+    for k, v in h {
+      mHeaders.set(k, v)
+    }
+  }
+  if data is Some(_) {
+    mHeaders.set("Content-Type", "application/json")
+  }
+  request(
     url,
     http_method=HttpMethod::POST,
     body=if data is Some(d) {
@@ -119,7 +128,7 @@ pub async fn post(
     } else {
       ""
     },
-    headers?,
+    headers=mHeaders,
     credentials?,
     mode?,
   )
@@ -132,8 +141,8 @@ pub async fn put(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(
+) -> HttpResponse raise NetworkError {
+  request(
     url,
     http_method=HttpMethod::PUT,
     body?,
@@ -150,8 +159,8 @@ pub async fn delete(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(
+) -> HttpResponse raise NetworkError {
+  request(
     url,
     http_method=HttpMethod::DELETE,
     body?,
@@ -168,8 +177,8 @@ pub async fn patch(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(
+) -> HttpResponse raise NetworkError {
+  request(
     url,
     http_method=HttpMethod::PATCH,
     body?,
@@ -186,8 +195,8 @@ pub async fn options(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(
+) -> HttpResponse raise NetworkError {
+  request(
     url,
     http_method=HttpMethod::OPTIONS,
     body?,
@@ -204,8 +213,8 @@ pub async fn head(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(
+) -> HttpResponse raise NetworkError {
+  request(
     url,
     http_method=HttpMethod::HEAD,
     body?,
@@ -222,8 +231,8 @@ pub async fn connect(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(
+) -> HttpResponse raise NetworkError {
+  request(
     url,
     http_method=HttpMethod::CONNECT,
     body?,
@@ -240,8 +249,8 @@ pub async fn trace(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
-  request!(
+) -> HttpResponse raise NetworkError {
+  request(
     url,
     http_method=HttpMethod::TRACE,
     body?,
@@ -259,7 +268,7 @@ pub async fn request_buffer(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
+) -> HttpResponse raise NetworkError {
   let options : Map[String, Json] = {}
   if http_method is Some(m) {
     options.set("method", m.to_string().to_json())
@@ -277,11 +286,11 @@ pub async fn request_buffer(
     options.set("mode", m.to_string().to_json())
   }
   match
-    @json.parse?(
-      request_buffer_internal_ffi!(
+    (try? @json.parse(
+      request_buffer_internal_ffi(
         [url.to_json(), options.to_json()].to_json().stringify(),
       ),
-    ) {
+    )) {
     Ok(
       {
         "headers": Object(headers),
@@ -320,7 +329,7 @@ pub async fn request(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!NetworkError {
+) -> HttpResponse raise NetworkError {
   let options : Map[String, Json] = {}
   if http_method is Some(m) {
     options.set("method", m.to_string().to_json())
@@ -338,11 +347,11 @@ pub async fn request(
     options.set("mode", m.to_string().to_json())
   }
   match
-    @json.parse?(
-      request_text_internal_ffi!(
+    (try? @json.parse(
+      request_text_internal_ffi(
         [url.to_json(), options.to_json()].to_json().stringify(),
       ),
-    ) {
+    )) {
     Ok(
       {
         "headers": Object(headers),
@@ -377,15 +386,15 @@ pub async fn download(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode
-) -> HttpResponse!Error {
-  let res = request!(
+) -> HttpResponse raise Error {
+  let res = request(
     url,
     http_method=HttpMethod::GET,
     headers?,
     credentials?,
     mode?,
   )
-  @fs.write_bytes_to_file!(
+  @fs.write_bytes_to_file(
     if save_path is Some(s) {
       s
     } else if save_path_fn is Some(f) {
@@ -401,7 +410,7 @@ pub async fn download(
 ///|
 test {
   run(fn() {
-    if get?("https://echo.apifox.com/anything") is Ok(a) {
+    if (try? get("https://echo.apifox.com/anything")) is Ok(a) {
       println(a.unwrap_json())
     }
   })
@@ -410,12 +419,12 @@ test {
 ///|
 test {
   run(fn() {
-    if post?("https://echo.apifox.com/anything", data={
+    if (try? post("https://echo.apifox.com/anything", data={
         "id": 12,
         "name": "mio",
-      })
+      }))
       is Ok(a) {
-      println(a.unwrap_json())
+      println(a.text())
     }
   })
 }
@@ -423,7 +432,7 @@ test {
 ///|
 test {
   run(fn() {
-    if download?("https://api.github.com", save_path="api.json") is Ok(_) {
+    if (try? download("https://api.github.com", save_path="api.json")) is Ok(_) {
       println("Downloaded")
     }
   })
