@@ -54,3 +54,12 @@ A powerful HTTP networking package for MoonBit.
   }
 })
 ```
+
+## Real World Example
+
+Check out [weatherquery](https://github.com/oboard/weatherquery), a weather query tool built with MoonBit and mio:
+
+- Uses mio to fetch real-time weather data from API
+- Supports querying weather information for Chinese provinces, cities and districts
+- Displays temperature, weather conditions, wind direction, humidity and pressure
+- Works with both native and JavaScript backends
