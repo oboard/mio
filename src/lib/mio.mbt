@@ -1,5 +1,5 @@
 ///|
-pub fn run(f : async () -> Unit) -> Unit = "%async.run"
+pub fn run(f : async () -> Unit noraise) -> Unit = "%async.run"
 
 ///|
 pub suberror IOError derive(Show)
@@ -83,7 +83,7 @@ pub fn handle(_reqMethod : String, _mapping : String) -> Unit {
 pub fn writeHead(
   self : HttpResponse,
   statusCode : Int,
-  headers : Map[String, String]
+  headers : Map[String, String],
 ) -> Unit {
   // (binding.send)("http.writeHead", [Number(self.id), statusCode, headers])
   self.statusCode = statusCode
@@ -95,7 +95,7 @@ pub async fn get(
   url : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   request(url, http_method=HttpMethod::GET, headers?, credentials?, mode?)
 }
@@ -107,7 +107,7 @@ pub async fn post(
   data? : Json,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   let mHeaders = {}
   if headers is Some(h) {
@@ -140,7 +140,7 @@ pub async fn put(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   request(
     url,
@@ -158,7 +158,7 @@ pub async fn delete(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   request(
     url,
@@ -176,7 +176,7 @@ pub async fn patch(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   request(
     url,
@@ -194,7 +194,7 @@ pub async fn options(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   request(
     url,
@@ -212,7 +212,7 @@ pub async fn head(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   request(
     url,
@@ -230,7 +230,7 @@ pub async fn connect(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   request(
     url,
@@ -248,7 +248,7 @@ pub async fn trace(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   request(
     url,
@@ -267,7 +267,7 @@ pub async fn request_buffer(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   let options : Map[String, Json] = {}
   if http_method is Some(m) {
@@ -294,7 +294,7 @@ pub async fn request_buffer(
     Ok(
       {
         "headers": Object(headers),
-        "status": Number(status),
+        "status": Number(status, ..),
         "data": Array(data),
         ..
       }
@@ -304,13 +304,13 @@ pub async fn request_buffer(
         headers: headers
         .iter()
         .map(fn(i : (String, Json)) -> (String, String) {
-          (i.0, i.1.as_string().or(""))
+          (i.0, i.1.as_string().unwrap_or(""))
         })
         .to_array()
         |> Map::from_array,
         data: Bytes::from_array(
           data.map(fn(i : Json) -> Byte {
-            i.as_number().or(0).to_int().to_byte()
+            i.as_number().unwrap_or(0).to_int().to_byte()
           }),
         ),
       }
@@ -328,7 +328,7 @@ pub async fn request(
   body? : String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise NetworkError {
   let options : Map[String, Json] = {}
   if http_method is Some(m) {
@@ -355,7 +355,7 @@ pub async fn request(
     Ok(
       {
         "headers": Object(headers),
-        "status": Number(status),
+        "status": Number(status, ..),
         "data": String(data),
         ..
       }
@@ -365,7 +365,7 @@ pub async fn request(
         headers: headers
         .iter()
         .map(fn(i : (String, Json)) -> (String, String) {
-          (i.0, i.1.as_string().or(""))
+          (i.0, i.1.as_string().unwrap_or(""))
         })
         .to_array()
         |> Map::from_array,
@@ -385,7 +385,7 @@ pub async fn download(
   save_path_fn? : (Map[String, String]) -> String,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
-  mode? : FetchMode
+  mode? : FetchMode,
 ) -> HttpResponse raise Error {
   let res = request(
     url,

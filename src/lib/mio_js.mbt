@@ -8,12 +8,12 @@ async fn[T, E : Error] suspend(
     // `f` 的第二个参数用于取消被中断的协程。
     // 取消会被表示为在中断处抛出错误
     (E) -> Unit,
-  ) -> Unit
+  ) -> Unit,
 ) -> T raise E = "%async.suspend"
 
 ///|
 async fn request_buffer_internal_ffi(
-  args : String
+  args : String,
 ) -> String raise NetworkError {
   suspend(fn(resume_ok, resume_err) {
     request_buffer_internal(args, resume_ok, resume_err)
@@ -35,7 +35,7 @@ async fn request_text_internal_ffi(args : String) -> String raise NetworkError {
 extern "js" fn request_buffer_internal(
   args : String,
   resume_ok : (String) -> Unit,
-  resume_err : (Error) -> Unit
+  resume_err : (Error) -> Unit,
 ) -> Unit =
   #|async function(args, resume_ok, resume_err) {
   #|  const [url, options] = JSON.parse(args);
@@ -64,7 +64,7 @@ extern "js" fn request_buffer_internal(
 extern "js" fn request_text_internal(
   args : String,
   resume_ok : (String) -> Unit,
-  resume_err : (Error) -> Unit
+  resume_err : (Error) -> Unit,
 ) -> Unit =
   #|async function(args, resume_ok, resume_err) {
   #|  const [url, options] = JSON.parse(args);

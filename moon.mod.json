@@ -1,10 +1,10 @@
 {
   "name": "oboard/mio",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "deps": {
-    "moonbitlang/x": "0.4.27",
-    "illusory0x0/native": "0.1.4",
-    "tonyfettes/encoding": "0.3.2"
+    "moonbitlang/x": "0.4.31",
+    "illusory0x0/native": "0.2.1",
+    "tonyfettes/encoding": "0.3.6"
   },
   "readme": "README.md",
   "repository": "https://github.com/oboard/mio",

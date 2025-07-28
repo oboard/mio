@@ -1,30 +1,30 @@
 ///|
 extern "c" fn request_buffer_internal(
   args : @native.Ptr[Byte],
-  callback : @native.Ptr[Byte]
+  callback : @native.Ptr[Byte],
 ) -> @native.Ptr[Byte] = "request_buffer_internal"
 
 ///|
 extern "c" fn request_text_internal(
   args : @native.Ptr[Byte],
-  callback : @native.Ptr[Byte]
+  callback : @native.Ptr[Byte],
 ) -> @native.Ptr[Byte] = "request_text_internal"
 
 ///|
 extern "c" fn utf16le_to_utf8(
   utf16le : @native.Ptr[Byte],
-  len : Int
+  len : Int,
 ) -> @native.Ptr[Byte] = "utf16le_to_utf8"
 
 ///|
 extern "c" fn utf8_to_utf16le(
   utf8 : @native.Ptr[Byte],
-  out_len : @native.Ptr[Int]
+  out_len : @native.Ptr[Int],
 ) -> @native.Ptr[Byte] = "utf8_to_utf16le"
 
 ///|
 pub async fn request_buffer_internal_ffi(
-  args : String
+  args : String,
 ) -> String raise NetworkError {
   println("[MB DEBUG] request_buffer_internal_ffi - Input args: " + args)
 
@@ -60,7 +60,7 @@ pub async fn request_buffer_internal_ffi(
 
 ///|
 pub async fn request_text_internal_ffi(
-  args : String
+  args : String,
 ) -> String raise NetworkError {
   // 使用 encoding 库将字符串转换为 UTF-8 字节
   let bytes = @encoding.encode(args, encoding=UTF8)
