@@ -507,7 +507,7 @@ pub async fn request_stream(
     options.set("method", m.to_string().to_json())
   }
   if body is Some(b) {
-    options.set("body", b)
+    options.set("body", b.stringify().to_json())
   }
   if headers is Some(h) {
     options.set("headers", h.to_json())
