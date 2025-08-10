@@ -48,3 +48,27 @@ test "stream" {
     }
   })
 }
+
+///|
+test "stream post" {
+  run(fn() {
+    let chunks = []
+    if (try? post_stream(
+        "https://httpbin.org/stream/3",
+        data={ "id": 12, "name": "mio" },
+        chunk => {
+          println("receive: " + chunk)
+          chunks.push(chunk)
+        },
+      ))
+      is Ok(response) {
+      if response.statusCode != 200 {
+        abort("Expected status 200, got " + response.statusCode.to_string())
+      }
+      if chunks.length() == 0 {
+        abort("Expected to receive chunks")
+      }
+      println("receive " + chunks.length().to_string() + " chunks")
+    }
+  })
+}

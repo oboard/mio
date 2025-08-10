@@ -496,7 +496,7 @@ pub async fn download(
 pub async fn request_stream(
   url : String,
   http_method? : HttpMethod,
-  body? : String,
+  body? : Json,
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
@@ -507,7 +507,7 @@ pub async fn request_stream(
     options.set("method", m.to_string().to_json())
   }
   if body is Some(b) {
-    options.set("body", b.to_json())
+    options.set("body", b)
   }
   if headers is Some(h) {
     options.set("headers", h.to_json())
@@ -596,6 +596,26 @@ pub async fn get_stream(
   request_stream(
     url,
     http_method=HttpMethod::GET,
+    headers?,
+    credentials?,
+    mode?,
+    on_chunk~,
+  )
+}
+
+///|
+pub async fn post_stream(
+  url : String,
+  data~ : Json,
+  headers? : Map[String, String],
+  credentials? : FetchCredentials,
+  mode? : FetchMode,
+  on_chunk : (String) -> Unit,
+) -> HttpResponse raise NetworkError {
+  request_stream(
+    url,
+    http_method=HttpMethod::POST,
+    body=data,
     headers?,
     credentials?,
     mode?,
