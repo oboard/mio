@@ -1,8 +1,16 @@
 {
     "targets": {
-        "mio_wasm.mbt": ["wasm", "wasm-gc"],
-        "mio_native.mbt": ["native", "llvm"],
-        "mio_js.mbt": ["js"]
+        "mio_wasm.mbt": [
+            "wasm",
+            "wasm-gc"
+        ],
+        "mio_native.mbt": [
+            "native",
+            "llvm"
+        ],
+        "mio_js.mbt": [
+            "js"
+        ]
     },
     "import": [
         {
@@ -19,8 +27,14 @@
         }
     ],
     "warn-list": "-1-2-3-6",
-    "supported-targets": ["js", "native"],
-    "native-stub": ["mio_native.c", "cJSON.c"],
+    "supported-targets": [
+        "js",
+        "native"
+    ],
+    "native-stub": [
+        "mio_native.c",
+        "cJSON.c"
+    ],
     "link": {
         "native": {
             "cc-link-flags": "-lcurl"

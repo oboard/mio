@@ -379,6 +379,216 @@ char *request_buffer_internal(const char *args, const char *callback)
     return result;
 }
 
+// 移除全局回调机制，直接使用传入的回调函数指针
+
+// MoonBit回调函数包装器
+static void *moonbit_callback_ptr = NULL;
+
+// C回调函数，用于调用MoonBit函数
+void call_moonbit_callback(void *data) {
+    if (moonbit_callback_ptr) {
+        // 通过函数指针调用MoonBit函数
+        void (*mb_callback)(void *) = (void (*)(void *))moonbit_callback_ptr;
+        mb_callback(data);
+    }
+}
+
+// 流式处理的回调函数结构体
+typedef struct
+{
+    void (*callback)(void *);
+    char *buffer;
+    size_t buffer_size;
+} StreamCallbackData;
+
+// 流式处理的写回调函数
+size_t StreamWriteCallback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+    printf("StreamWriteCallback\n");
+    size_t totalSize = size * nmemb;
+    StreamCallbackData *stream_data = (StreamCallbackData *)userp;
+
+    // 将新数据添加到缓冲区
+    size_t currentSize = stream_data->buffer ? strlen(stream_data->buffer) : 0;
+    stream_data->buffer = realloc(stream_data->buffer, currentSize + totalSize + 1);
+    if (stream_data->buffer == NULL)
+    {
+        printf("Memory allocation failed\n");
+        return 0;
+    }
+
+    memcpy(stream_data->buffer + currentSize, contents, totalSize);
+    stream_data->buffer[currentSize + totalSize] = '\0';
+
+    // 按行处理数据
+    char *line_start = stream_data->buffer;
+    char *line_end;
+
+    while ((line_end = strchr(line_start, '\n')) != NULL)
+    {
+        *line_end = '\0';
+        printf("line_start: %s\n", line_start);
+        // 调用MoonBit回调函数处理这一行
+        if (stream_data->callback && strlen(line_start) > 0)
+        {
+            stream_data->callback((void *)line_start);
+        }
+
+        line_start = line_end + 1;
+    }
+
+    // 保留未完成的行
+    if (line_start < stream_data->buffer + currentSize + totalSize)
+    {
+        size_t remaining = strlen(line_start);
+        printf("remaining: %s\n", line_start);
+        memmove(stream_data->buffer, line_start, remaining + 1);
+        stream_data->buffer = realloc(stream_data->buffer, remaining + 1);
+    }
+    else
+    {
+        free(stream_data->buffer);
+        stream_data->buffer = NULL;
+    }
+
+    return totalSize;
+}
+
+// 流式请求函数
+char *request_stream_internal(const char *args, void *callback)
+{
+    if (!args || !callback)
+    {
+        fprintf(stderr, "Error: Empty or invalid input\n");
+        return NULL;
+    }
+    
+    // 设置全局回调指针
+    moonbit_callback_ptr = callback;
+    
+    printf("args: %s\n", args);
+    FetchOptions options = parse_options(args);
+    if (!options.url)
+    {
+        fprintf(stderr, "Error: Failed to parse URL from args\n");
+        return NULL;
+    }
+
+    CURL *curl;
+    CURLcode res;
+    struct curl_slist *headers = NULL;
+    long http_code = 0;
+
+    // 设置流式回调数据
+    StreamCallbackData stream_data;
+    stream_data.callback = call_moonbit_callback;
+    stream_data.buffer = NULL;
+    stream_data.buffer_size = 0;
+
+    curl_global_init(CURL_GLOBAL_DEFAULT);
+    curl = curl_easy_init();
+
+    if (curl)
+    {
+        // 设置URL
+        curl_easy_setopt(curl, CURLOPT_URL, options.url);
+
+        // 设置HTTP方法
+        switch (options.method)
+        {
+        case HTTP_GET:
+            break;
+        case HTTP_POST:
+            curl_easy_setopt(curl, CURLOPT_POST, 1L);
+            break;
+        case HTTP_PUT:
+            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PUT");
+            break;
+        case HTTP_DELETE:
+            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+            break;
+        case HTTP_PATCH:
+            curl_easy_setopt(curl, CURLOPT_CUSTOMREQUEST, "PATCH");
+            break;
+        default:
+            fprintf(stderr, "Unknown HTTP method\n");
+            break;
+        }
+
+        // 设置请求体
+        if (options.body)
+        {
+            curl_easy_setopt(curl, CURLOPT_POSTFIELDS, options.body);
+        }
+
+        // 设置默认请求头
+        headers = curl_slist_append(headers, "User-Agent: MoonBit/1.0");
+        headers = curl_slist_append(headers, "Accept: text/event-stream");
+        headers = curl_slist_append(headers, "Cache-Control: no-cache");
+
+        // 添加用户自定义请求头
+        if (options.headers)
+        {
+            struct curl_slist *current = options.headers;
+            while (current)
+            {
+                headers = curl_slist_append(headers, current->data);
+                current = current->next;
+            }
+        }
+        curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+
+        // 设置流式回调函数
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, StreamWriteCallback);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &stream_data);
+
+        // 设置 SSL 选项
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYPEER, 0L);
+        curl_easy_setopt(curl, CURLOPT_SSL_VERIFYHOST, 0L);
+
+        // 执行请求
+        res = curl_easy_perform(curl);
+
+        // 处理剩余的缓冲区数据
+        if (stream_data.buffer && strlen(stream_data.buffer) > 0)
+        {
+            stream_data.callback((void *)stream_data.buffer);
+        }
+
+        // 获取HTTP状态码
+        curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+        // 清理
+        curl_slist_free_all(headers);
+        curl_easy_cleanup(curl);
+        if (stream_data.buffer)
+        {
+            free(stream_data.buffer);
+        }
+    }
+
+    curl_global_cleanup();
+    cleanup_options(&options);
+
+    if (res != CURLE_OK)
+    {
+        fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+        return NULL;
+    }
+
+    // 构造响应 JSON
+    cJSON *json_response = cJSON_CreateObject();
+    cJSON_AddObjectToObject(json_response, "headers");
+    cJSON_AddNumberToObject(json_response, "status", http_code);
+    cJSON_AddStringToObject(json_response, "statusText", "OK");
+    cJSON_AddBoolToObject(json_response, "ok", http_code >= 200 && http_code < 300);
+    cJSON_AddStringToObject(json_response, "data", "stream_complete");
+    printf("json_response: %s\n", cJSON_Print(json_response));
+    char *result = cJSON_Print(json_response);
+    cJSON_Delete(json_response);
+    return result;
+}
+
 char *request_text_internal(const char *args, const char *callback)
 {
     if (!args)

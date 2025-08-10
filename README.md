@@ -11,6 +11,7 @@ A powerful and modern HTTP networking library for MoonBit with multi-backend sup
 - 🌐 **Complete HTTP Methods**: GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD, CONNECT, TRACE
 - 📄 **JSON Handling**: Seamless JSON parsing and response handling
 - 📁 **File Downloads**: Built-in file download capabilities with custom save paths
+- 🌊 **Stream Processing**: Real-time data streaming with callback support
 - 🎯 **Multi-Backend**: Support for Native (libcurl), JavaScript (Fetch API), and WASM
 - ⚡ **Type Safety**: Full MoonBit type system support with error handling
 - 🔧 **Flexible Options**: Headers, credentials, modes, and request customization
@@ -132,6 +133,30 @@ Add to your `moon.mod.json`:
 })
 ```
 
+### Stream Requests
+
+```moonbit
+@mio.run(fn() {
+  // Stream processing with real-time data handling
+  let chunks = []
+  
+  match (try? @mio.get_stream("https://api.example.com/stream",
+    fn(chunk) {
+      println("Received chunk: " + chunk)
+      chunks.push(chunk)
+      // Process each chunk as it arrives
+    })) {
+    Ok(response) => {
+      println("Stream completed with status: " + response.statusCode.to_string())
+      println("Total chunks received: " + chunks.length().to_string())
+    }
+    Err(e) => println("Stream failed: " + e.to_string())
+  }
+})
+```
+
+**Note**: Stream functionality is currently under development for native backend due to callback compatibility issues between MoonBit and C function pointers. It works properly on JavaScript and WASM backends.
+
 ## API Reference
 
 ### HTTP Methods
@@ -157,6 +182,9 @@ All HTTP methods support the same optional parameters:
 (try? @mio.head(url, body?, headers?, credentials?, mode?))
 (try? @mio.connect(url, body?, headers?, credentials?, mode?))
 (try? @mio.trace(url, body?, headers?, credentials?, mode?))
+
+// Stream request with callback for real-time data processing
+(try? @mio.get_stream(url, callback, headers?, credentials?, mode?))
 ```
 
 ### Response Handling
@@ -238,9 +266,3 @@ Check out these real-world projects using mio:
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
-
-## Links
-
-- [GitHub Repository](https://github.com/oboard/mio)
-- [MoonBit Official Website](https://www.moonbitlang.com)
-- [Documentation](https://github.com/oboard/mio/wiki)

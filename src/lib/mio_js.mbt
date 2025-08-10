@@ -32,6 +32,18 @@ async fn request_text_internal_ffi(args : String) -> String raise NetworkError {
 }
 
 ///|
+async fn request_stream_internal_ffi(
+  args : String,
+  on_chunk : (String) -> Unit,
+) -> String raise NetworkError {
+  suspend(fn(resume_ok, resume_err) {
+    request_stream_internal(args, on_chunk, resume_ok, resume_err)
+  }) catch {
+    _ => raise NetworkError
+  }
+}
+
+///|
 extern "js" fn request_buffer_internal(
   args : String,
   resume_ok : (String) -> Unit,
@@ -57,6 +69,81 @@ extern "js" fn request_buffer_internal(
   #|     )
   #|  } catch (error) {
   #|    resume_err(error)
+  #|  }
+  #|}
+
+///|
+extern "js" fn request_stream_internal(
+  args : String,
+  on_chunk : (String) -> Unit,
+  resume_ok : (String) -> Unit,
+  resume_err : (Error) -> Unit,
+) -> Unit =
+  #|async function(args, on_chunk, resume_ok, resume_err) {
+  #|  const [url, options] = JSON.parse(args);
+  #|  try {
+  #|    const res = await fetch(url, options);
+  #|    const headersObj = {};
+  #|    res.headers.forEach((value, name) => {
+  #|      headersObj[name] = value;
+  #|    });
+  #|    
+  #|    if (res.body && res.body.getReader) {
+  #|      const reader = res.body.getReader();
+  #|      const decoder = new TextDecoder();
+  #|      let buffer = '';
+  #|      
+  #|      try {
+  #|        while (true) {
+  #|          const { done, value } = await reader.read();
+  #|          if (done) break;
+  #|          
+  #|          buffer += decoder.decode(value, { stream: true });
+  #|          
+  #|          // Process complete lines
+  #|          let lines = buffer.split('\n');
+  #|          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+  #|          
+  #|          for (const line of lines) {
+  #|            if (line.trim()) {
+  #|              on_chunk(line + '\n');
+  #|            }
+  #|          }
+  #|        }
+  #|        
+  #|        // Process any remaining buffer
+  #|        if (buffer.trim()) {
+  #|          on_chunk(buffer);
+  #|        }
+  #|        
+  #|        resume_ok(
+  #|          JSON.stringify({
+  #|            "headers": headersObj,
+  #|            "status": res.status,
+  #|            "statusText": res.statusText,
+  #|            "ok": res.ok,
+  #|            "data": "stream_completed"
+  #|          })
+  #|        );
+  #|      } catch (streamError) {
+  #|        resume_err(streamError);
+  #|      }
+  #|    } else {
+  #|      // Fallback to regular text response
+  #|      const text = await res.text();
+  #|      on_chunk(text);
+  #|      resume_ok(
+  #|        JSON.stringify({
+  #|          "headers": headersObj,
+  #|          "status": res.status,
+  #|          "statusText": res.statusText,
+  #|          "ok": res.ok,
+  #|          "data": text
+  #|        })
+  #|      );
+  #|    }
+  #|  } catch (error) {
+  #|    resume_err(error);
   #|  }
   #|}
 

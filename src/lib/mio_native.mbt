@@ -23,6 +23,16 @@ extern "c" fn utf8_to_utf16le(
 ) -> @native.Ptr[Byte] = "utf8_to_utf16le"
 
 ///|
+extern "c" fn request_stream_internal(
+  args : @native.Ptr[Byte],
+  callback : @native.Ptr[Byte],
+) -> @native.Ptr[Byte] = "request_stream_internal"
+
+// 移除不再使用的set_moonbit_callback函数
+
+// 移除全局回调机制，直接使用函数指针
+
+///|
 pub async fn request_buffer_internal_ffi(
   args : String,
 ) -> String raise NetworkError {
@@ -42,7 +52,7 @@ pub async fn request_buffer_internal_ffi(
   }
 
   // 使用 CStr 转换为字节，然后使用 encoding 库解码为字符串
-  let result_bytes = @native.CStr::unsafe_from_byte_ptr(result_ptr).to_bytes()
+  let result_bytes = @native.CStr::unsafe_from_byte_ptr(result_ptr).to_bytes()[0:-1] // 去除 \u{00}
   // 去除末尾的 null 字符
   match (try? @encoding.decode(result_bytes, encoding=UTF8)) {
     Ok(text) => {
@@ -56,6 +66,14 @@ pub async fn request_buffer_internal_ffi(
       raise NetworkError
     }
   }
+}
+
+///|
+pub async fn request_stream_internal_ffi(
+  args : String,
+  on_chunk : (String) -> Unit,
+) -> String raise Error {
+  raise UnimplementedError
 }
 
 ///|

@@ -13,10 +13,18 @@ async fn[T, E : Error] suspend(
 
 ///|
 pub async fn request_buffer_internal_ffi(args : String) -> String raise Error {
-  raise NetworkError
+  raise UnimplementedError
 }
 
 ///|
 pub async fn request_text_internal_ffi(args : String) -> String raise Error {
-  raise NetworkError
+  raise UnimplementedError
+}
+
+///|
+pub async fn request_stream_internal_ffi(
+  args : String,
+  on_chunk : (String) -> Unit,
+) -> String raise Error {
+  raise UnimplementedError
 }
