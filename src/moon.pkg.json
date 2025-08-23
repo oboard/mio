@@ -16,16 +16,30 @@
         {
             "path": "moonbitlang/x/fs",
             "alias": "fs"
-        },
-        {
-            "path": "illusory0x0/native",
-            "alias": "native"
-        },
-        {
-            "path": "tonyfettes/encoding",
-            "alias": "encoding"
         }
     ],
+    "target-import": {
+        "native": [
+            {
+                "path": "illusory0x0/native",
+                "alias": "native"
+            },
+            {
+                "path": "tonyfettes/encoding",
+                "alias": "encoding"
+            }
+        ],
+        "llvm": [
+            {
+                "path": "illusory0x0/native",
+                "alias": "native"
+            },
+            {
+                "path": "tonyfettes/encoding",
+                "alias": "encoding"
+            }
+        ]
+    },
     "warn-list": "-1-2-3-6",
     "supported-targets": [
         "js",
