@@ -20,14 +20,9 @@ extern "c" fn request_stream_internal(
 pub async fn request_internal_ffi(
   args : String,
 ) -> (String, String, Bytes) raise NetworkError {
-  println("[MB DEBUG] request_internal_ffi - Input args: " + args)
 
   // 使用 encoding 库将字符串转换为 UTF-8 字节
   let bytes = @encoding.encode(UTF8, args)
-  println(
-    "[MB DEBUG] request_internal_ffi - Bytes length: " +
-    bytes.length().to_string(),
-  )
   let utf8_ptr = @native.unsafe_coerce(bytes)
   let result_ptr = request_internal(utf8_ptr, utf8_ptr)
   if result_ptr.is_null() {
@@ -38,7 +33,6 @@ pub async fn request_internal_ffi(
   let result_bytes = @native.CStr::unsafe_from_byte_ptr(result_ptr).to_bytes()[0:-1]
   match (try? @encoding.decoder(UTF8).decode(result_bytes)) {
     Ok(text) => {
-      println("[MB DEBUG] request_internal_ffi - Response: " + text)
       @native.free(result_ptr)
       // 解析响应，分离headers和data
       match (try? @json.parse(text)) {
