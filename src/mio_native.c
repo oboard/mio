@@ -331,7 +331,7 @@ static void cleanup_options(FetchOptions *options)
 }
 
 // MoonBit 接口函数
-char *request_buffer_internal(const char *args, const char *callback)
+char *request_internal(const char *args, const char *callback)
 {
     if (!args)
     {
@@ -354,23 +354,13 @@ char *request_buffer_internal(const char *args, const char *callback)
         return NULL;
     }
 
-    // 构造响应 JSON
+    // 构造响应 JSON，匹配 MoonBit 期望的格式
     cJSON *json_response = cJSON_CreateObject();
-    cJSON_AddObjectToObject(json_response, "headers");
-    cJSON_AddNumberToObject(json_response, "status", 200);
-    cJSON_AddStringToObject(json_response, "statusText", "OK");
-    cJSON_AddBoolToObject(json_response, "ok", 1);
+    cJSON_AddStringToObject(json_response, "response_info", "{\"status\": 200}");
+    cJSON_AddStringToObject(json_response, "headers", "{}");
 
-    // 尝试解析响应为 JSON
-    cJSON *response_data = cJSON_Parse(response);
-    if (response_data)
-    {
-        cJSON_AddItemToObject(json_response, "data", response_data);
-    }
-    else
-    {
-        cJSON_AddStringToObject(json_response, "data", response);
-    }
+    // 直接将响应数据作为字符串返回，与JS平台保持一致
+    cJSON_AddStringToObject(json_response, "data", response);
 
     char *result = cJSON_Print(json_response);
     cJSON_Delete(json_response);
@@ -385,8 +375,10 @@ char *request_buffer_internal(const char *args, const char *callback)
 static void *moonbit_callback_ptr = NULL;
 
 // C回调函数，用于调用MoonBit函数
-void call_moonbit_callback(void *data) {
-    if (moonbit_callback_ptr) {
+void call_moonbit_callback(void *data)
+{
+    if (moonbit_callback_ptr)
+    {
         // 通过函数指针调用MoonBit函数
         void (*mb_callback)(void *) = (void (*)(void *))moonbit_callback_ptr;
         mb_callback(data);
@@ -462,10 +454,10 @@ char *request_stream_internal(const char *args, void *callback)
         fprintf(stderr, "Error: Empty or invalid input\n");
         return NULL;
     }
-    
+
     // 设置全局回调指针
     moonbit_callback_ptr = callback;
-    
+
     printf("args: %s\n", args);
     FetchOptions options = parse_options(args);
     if (!options.url)

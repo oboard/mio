@@ -12,6 +12,7 @@ A powerful and modern HTTP networking library for MoonBit with multi-backend sup
 - 📄 **JSON Handling**: Seamless JSON parsing and response handling
 - 📁 **File Downloads**: Built-in file download capabilities with custom save paths
 - 🌊 **Stream Processing**: Real-time data streaming with callback support
+- 📦 **Binary Data Support**: Native handling of binary data with unified `Bytes` interface across all backends
 - 🎯 **Multi-Backend**: Support for Native (libcurl), JavaScript (Fetch API), and WASM
 - ⚡ **Type Safety**: Full MoonBit type system support with error handling
 - 🔧 **Flexible Options**: Headers, credentials, modes, and request customization
@@ -232,18 +233,26 @@ The library defines three main error types:
 })
 ```
 
-### Buffer Requests for Binary Data
+### Binary Data Handling
+
+Mio provides unified binary data support across all backends through the `Bytes` interface. All HTTP responses contain raw binary data in `response.data`, which can be processed as text or kept as binary.
 
 ```moonbit
 @mio.run(fn() {
-  match (try? @mio.request_buffer("https://example.com/image.png")) {
+  // All requests return binary data in response.data
+  match (try? @mio.get("https://example.com/image.png")) {
     Ok(response) => {
-      // response.data contains raw bytes
+      // response.data contains raw bytes (unified across all backends)
       @fs.write_bytes_to_file("image.png", response.data)
+      
+      // For text content, use response.text()
+      let text_content = response.text()
+      println("Content: " + text_content)
     }
-    Err(e) => println("Failed to download image")
+    Err(e) => println("Failed to download: " + e.to_string())
   }
 })
+
 ```
 
 ## Examples

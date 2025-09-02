@@ -13,12 +13,9 @@ async fn[T, E : Error] suspend(
 ) -> T raise E = "%async.suspend"
 
 ///|
-pub async fn request_buffer_internal_ffi(args : String) -> String raise Error {
-  raise UnimplementedError
-}
-
-///|
-pub async fn request_text_internal_ffi(args : String) -> String raise Error {
+pub async fn request_internal_ffi(
+  args : String,
+) -> (String, String, Bytes) raise Error {
   raise UnimplementedError
 }
 

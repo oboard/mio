@@ -58,7 +58,9 @@ pub fn HttpResponse::unwrap_json(self : HttpResponse) -> Json {
 
 ///|
 pub fn HttpResponse::text(self : HttpResponse) -> String {
-  @buffer.from_bytes(self.data).to_string()
+  let buf = StringBuilder::new()
+  try! @encoding.decoder(UTF8).decode_to(self.data, buf)
+  buf.to_string()
 }
 
 ///|
@@ -344,65 +346,6 @@ pub async fn trace(
 }
 
 ///|
-pub async fn request_buffer(
-  url : String,
-  http_method? : HttpMethod,
-  body? : String,
-  headers? : Map[String, String],
-  credentials? : FetchCredentials,
-  mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
-  let options : Map[String, Json] = {}
-  options.set("method", http_method.to_string().to_json())
-  if body is Some(b) {
-    options.set("body", b.to_json())
-  }
-  if headers is Some(h) {
-    options.set("headers", h.to_json())
-  }
-  if credentials is Some(c) {
-    options.set("credentials", c.to_json())
-  }
-  if mode is Some(m) {
-    options.set("mode", m.to_string().to_json())
-  }
-  match
-    (try? @json.parse(
-      request_buffer_internal_ffi(
-        [url.to_json(), options.to_json()].to_json().stringify(),
-      ),
-    )) {
-    Ok(
-      {
-        "headers": Object(headers),
-        "status": Number(status, ..),
-        "data": Array(data),
-        ..
-      }
-    ) =>
-      HttpResponse::{
-        statusCode: status.to_int(),
-        headers: headers
-        .iter()
-        .map(fn(i : (String, Json)) -> (String, String) {
-          (i.0, i.1.as_string().unwrap_or(""))
-        })
-        .to_array()
-        |> Map::from_array,
-        data: Bytes::from_array(
-          data.map(fn(i : Json) -> Byte {
-            i.as_number().unwrap_or(0).to_int().to_byte()
-          }),
-        ),
-      }
-    _ => {
-      println("Error fetching url: " + url)
-      raise NetworkError
-    }
-  }
-}
-
-///|
 pub async fn request(
   url : String,
   http_method? : HttpMethod,
@@ -431,20 +374,11 @@ pub async fn request(
   if stream {
     options.set("stream", stream.to_json())
   }
-  match
-    (try? @json.parse(
-      request_text_internal_ffi(
-        [url.to_json(), options.to_json()].to_json().stringify(),
-      ),
-    )) {
-    Ok(
-      {
-        "headers": Object(headers),
-        "status": Number(status, ..),
-        "data": String(data),
-        ..
-      }
-    ) =>
+  let (response_info, headers_json, data) = request_internal_ffi(
+    [url.to_json(), options.to_json()].to_json().stringify(),
+  )
+  match (try? @json.parse(response_info), try? @json.parse(headers_json)) {
+    (Ok({ "status": Number(status, ..), .. }), Ok(Object(headers))) =>
       HttpResponse::{
         statusCode: status.to_int(),
         headers: headers
@@ -454,7 +388,7 @@ pub async fn request(
         })
         .to_array()
         |> Map::from_array,
-        data: data.to_bytes(),
+        data,
       }
     _ => {
       println("Error fetching url: " + url)

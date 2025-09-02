@@ -13,20 +13,17 @@ async fn[T, E : Error] suspend(
 ) -> T raise E = "%async.suspend"
 
 ///|
-async fn request_buffer_internal_ffi(
+async fn request_internal_ffi(
   args : String,
-) -> String raise NetworkError {
+) -> (String, String, Bytes) raise NetworkError {
   suspend(fn(resume_ok, resume_err) {
-    request_buffer_internal(args, resume_ok, resume_err)
-  }) catch {
-    _ => raise NetworkError
-  }
-}
-
-///|
-async fn request_text_internal_ffi(args : String) -> String raise NetworkError {
-  suspend(fn(resume_ok, resume_err) {
-    request_text_internal(args, resume_ok, resume_err)
+    request_internal(
+      args,
+      fn(info, headers, data) {
+        resume_ok((info, headers, Bytes::from_array(data)))
+      },
+      resume_err,
+    )
   }) catch {
     _ => raise NetworkError
   }
@@ -45,9 +42,9 @@ async fn request_stream_internal_ffi(
 }
 
 ///|
-extern "js" fn request_buffer_internal(
+extern "js" fn request_internal(
   args : String,
-  resume_ok : (String) -> Unit,
+  resume_ok : (String, String, Array[Byte]) -> Unit,
   resume_err : (Error) -> Unit,
 ) -> Unit =
   #|async function(args, resume_ok, resume_err) {
@@ -59,15 +56,14 @@ extern "js" fn request_buffer_internal(
   #|    res.headers.forEach((value, name) => {
   #|      headersObj[name] = value;
   #|    });
-  #|    resume_ok(
-  #|      JSON.stringify({
-  #|        "headers": headersObj,
-  #|        "status": res.status,
-  #|        "statusText": res.statusText,
-  #|        "ok": res.ok,
-  #|        "data": new Uint8Array(buffer)
-  #|      }),
-  #|     )
+  #|    const responseInfo = JSON.stringify({
+  #|      "status": res.status,
+  #|      "statusText": res.statusText,
+  #|      "ok": res.ok
+  #|    });
+  #|    const headersJson = JSON.stringify(headersObj);
+  #|    const dataArray = Array.from(new Uint8Array(buffer));
+  #|    resume_ok(responseInfo, headersJson, dataArray);
   #|  } catch (error) {
   #|    resume_err(error)
   #|  }
@@ -145,34 +141,5 @@ extern "js" fn request_stream_internal(
   #|    }
   #|  } catch (error) {
   #|    resume_err(error);
-  #|  }
-  #|}
-
-///|
-extern "js" fn request_text_internal(
-  args : String,
-  resume_ok : (String) -> Unit,
-  resume_err : (Error) -> Unit,
-) -> Unit =
-  #|async function(args, resume_ok, resume_err) {
-  #|  const [url, options] = JSON.parse(args);
-  #|  try {
-  #|    const res = await fetch(url, options)
-  #|    const text = await res.text()
-  #|    const headersObj = {};
-  #|    res.headers.forEach((value, name) => {
-  #|      headersObj[name] = value;
-  #|    });
-  #|    resume_ok(
-  #|      JSON.stringify({
-  #|        "headers": headersObj,
-  #|        "status": res.status,
-  #|        "statusText": res.statusText,
-  #|        "ok": res.ok,
-  #|        "data": text
-  #|      }),
-  #|     )
-  #|  } catch (error) {
-  #|    resume_err(error)
   #|  }
   #|}

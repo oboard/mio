@@ -35,8 +35,6 @@ async fn put(String, body? : String, headers? : Map[String, String], credentials
 
 async fn request(String, http_method? : HttpMethod, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, stream? : Bool) -> HttpResponse raise NetworkError
 
-async fn request_buffer(String, http_method? : HttpMethod, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
-
 async fn request_stream(String, http_method? : HttpMethod, body? : Json, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, on_chunk~ : (String) -> Unit) -> HttpResponse raise NetworkError
 
 fn run(async () -> Unit) -> Unit
