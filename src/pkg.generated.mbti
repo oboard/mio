@@ -1,0 +1,143 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/mio"
+
+import(
+  "moonbitlang/core/buffer"
+  "moonbitlang/core/json"
+)
+
+// Values
+async fn connect(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+async fn delete(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+async fn download(String, save_path? : String, save_path_fn? : (Map[String, String]) -> String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise
+
+async fn get(String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+async fn get_stream(String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, (String) -> Unit) -> HttpResponse raise NetworkError
+
+fn handle(String, String) -> Unit
+
+async fn head(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+fn listen(Int) -> Unit raise
+
+async fn options(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+async fn patch(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+async fn post(String, body? : String, data? : Json, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+async fn post_stream(String, data~ : Json, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, (String) -> Unit) -> HttpResponse raise NetworkError
+
+async fn put(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+async fn request(String, http_method? : HttpMethod, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, stream? : Bool) -> HttpResponse raise NetworkError
+
+async fn request_buffer(String, http_method? : HttpMethod, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+async fn request_stream(String, http_method? : HttpMethod, body? : Json, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, on_chunk~ : (String) -> Unit) -> HttpResponse raise NetworkError
+
+fn run(async () -> Unit) -> Unit
+
+async fn sse_connect(String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, (SSEEvent) -> Unit) -> HttpResponse raise
+
+async fn trace(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+
+// Errors
+pub suberror ExecError
+impl Show for ExecError
+
+pub suberror IOError
+impl Show for IOError
+
+pub suberror NetworkError
+impl Show for NetworkError
+
+pub suberror StreamError
+impl Show for StreamError
+
+pub suberror UnimplementedError
+impl Show for UnimplementedError
+
+// Types and methods
+pub(all) enum FetchCredentials {
+  Omit
+  SameOrigin
+  Include
+}
+impl Eq for FetchCredentials
+impl Show for FetchCredentials
+impl ToJson for FetchCredentials
+
+pub(all) enum FetchMode {
+  CORS
+  NoCORS
+  SameOrigin
+  Navigate
+}
+impl Eq for FetchMode
+impl Show for FetchMode
+impl ToJson for FetchMode
+
+pub(all) enum HttpMethod {
+  GET
+  POST
+  PUT
+  DELETE
+  PATCH
+  OPTIONS
+  HEAD
+  CONNECT
+  TRACE
+}
+impl Eq for HttpMethod
+impl Show for HttpMethod
+impl ToJson for HttpMethod
+
+pub(all) struct HttpRequest {
+  request_method : HttpMethod
+  url : String?
+  path : String
+  query : String?
+  body : Json?
+}
+impl Eq for HttpRequest
+impl Show for HttpRequest
+impl ToJson for HttpRequest
+
+pub struct HttpResponse {
+  mut statusCode : Int
+  mut headers : Map[String, String]
+  data : Bytes
+}
+fn HttpResponse::json(Self) -> Json raise @json.ParseError
+fn HttpResponse::text(Self) -> String
+fn HttpResponse::unwrap_json(Self) -> Json
+fn HttpResponse::writeHead(Self, Int, Map[String, String]) -> Unit
+impl Eq for HttpResponse
+impl Show for HttpResponse
+
+pub struct SSEEvent {
+  mut event_type : String?
+  mut data : String
+  mut id : String?
+  mut retry : Int?
+}
+fn SSEEvent::parse(String) -> Array[Self]
+impl Eq for SSEEvent
+impl Show for SSEEvent
+
+pub struct StreamReader {
+  mut closed : Bool
+  buffer : @buffer.T
+}
+fn StreamReader::close(Self) -> Unit
+fn StreamReader::new() -> Self
+impl Show for StreamReader
+
+// Type aliases
+
+// Traits
+

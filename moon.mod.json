@@ -1,6 +1,6 @@
 {
   "name": "oboard/mio",
-  "version": "0.3.5",
+  "version": "0.3.6",
   "deps": {
     "moonbitlang/x": "0.4.31",
     "illusory0x0/native": "0.2.1",

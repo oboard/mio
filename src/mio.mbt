@@ -410,7 +410,7 @@ pub async fn request(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-  stream~ : Bool = false,
+  stream? : Bool = false,
 ) -> HttpResponse raise NetworkError {
   let options : Map[String, Json] = {}
   if http_method is Some(m) {
