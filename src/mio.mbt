@@ -165,12 +165,11 @@ pub fn handle(_reqMethod : String, _mapping : String) -> Unit {
 }
 
 ///|
-pub fn writeHead(
+pub fn write_head(
   self : HttpResponse,
   statusCode : Int,
   headers : Map[String, String],
 ) -> Unit {
-  // (binding.send)("http.writeHead", [Number(self.id), statusCode, headers])
   self.statusCode = statusCode
   self.headers = headers
 }
@@ -181,7 +180,7 @@ pub async fn get(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   request(url, http_method=HttpMethod::GET, headers?, credentials?, mode?)
 }
 
@@ -193,7 +192,7 @@ pub async fn post(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   let mHeaders = {}
   if headers is Some(h) {
     for k, v in h {
@@ -226,7 +225,7 @@ pub async fn put(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   request(
     url,
     http_method=HttpMethod::PUT,
@@ -244,7 +243,7 @@ pub async fn delete(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   request(
     url,
     http_method=HttpMethod::DELETE,
@@ -262,7 +261,7 @@ pub async fn patch(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   request(
     url,
     http_method=HttpMethod::PATCH,
@@ -280,7 +279,7 @@ pub async fn options(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   request(
     url,
     http_method=HttpMethod::OPTIONS,
@@ -298,7 +297,7 @@ pub async fn head(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   request(
     url,
     http_method=HttpMethod::HEAD,
@@ -316,7 +315,7 @@ pub async fn connect(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   request(
     url,
     http_method=HttpMethod::CONNECT,
@@ -334,7 +333,7 @@ pub async fn trace(
   headers? : Map[String, String],
   credentials? : FetchCredentials,
   mode? : FetchMode,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   request(
     url,
     http_method=HttpMethod::TRACE,
@@ -354,7 +353,7 @@ pub async fn request(
   credentials? : FetchCredentials,
   mode? : FetchMode,
   stream? : Bool = false,
-) -> HttpResponse raise NetworkError {
+) -> HttpResponse raise Error {
   let options : Map[String, Json] = {}
   if http_method is Some(m) {
     options.set("method", m.to_string().to_json())
