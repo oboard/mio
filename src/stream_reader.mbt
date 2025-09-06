@@ -1,7 +1,7 @@
 ///|
 pub struct StreamReader {
   mut closed : Bool
-  buffer : @buffer.T
+  buffer : @buffer.Buffer
 } derive(Show)
 
 ///|

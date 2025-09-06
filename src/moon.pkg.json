@@ -13,9 +13,9 @@
         ]
     },
     "import": [
-        "moonbitlang/x/fs",
-        "illusory0x0/native",
-        "moonbitlang/x/encoding"
+      "moonbitlang/x/fs",
+      "illusory0x0/native",
+      "moonbitlang/x/encoding"
     ],
     "warn-list": "-1-2-3-6",
     "supported-targets": [

@@ -7,41 +7,41 @@ import(
 )
 
 // Values
-async fn connect(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn connect(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
-async fn delete(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn delete(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
-async fn download(String, save_path? : String, save_path_fn? : (Map[String, String]) -> String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise
+async fn download(String, save_path? : String, save_path_fn? : (Map[String, String]) -> String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
-async fn get(String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn get(String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
 async fn get_stream(String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, (String) -> Unit) -> HttpResponse raise NetworkError
 
 fn handle(String, String) -> Unit
 
-async fn head(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn head(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
 fn listen(Int) -> Unit raise
 
-async fn options(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn options(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
-async fn patch(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn patch(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
-async fn post(String, body? : String, data? : Json, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn post(String, body? : String, data? : Json, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
 async fn post_stream(String, data~ : Json, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, (String) -> Unit) -> HttpResponse raise NetworkError
 
-async fn put(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn put(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
-async fn request(String, http_method? : HttpMethod, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, stream? : Bool) -> HttpResponse raise NetworkError
+async fn request(String, http_method? : HttpMethod, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, stream? : Bool) -> HttpResponse
 
 async fn request_stream(String, http_method? : HttpMethod, body? : Json, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, on_chunk~ : (String) -> Unit) -> HttpResponse raise NetworkError
 
-fn run(async () -> Unit) -> Unit
+fn run(async () -> Unit noraise) -> Unit
 
-async fn sse_connect(String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, (SSEEvent) -> Unit) -> HttpResponse raise
+async fn sse_connect(String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode, (SSEEvent) -> Unit) -> HttpResponse
 
-async fn trace(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse raise NetworkError
+async fn trace(String, body? : String, headers? : Map[String, String], credentials? : FetchCredentials, mode? : FetchMode) -> HttpResponse
 
 // Errors
 pub suberror ExecError
@@ -113,7 +113,7 @@ pub struct HttpResponse {
 fn HttpResponse::json(Self) -> Json raise @json.ParseError
 fn HttpResponse::text(Self) -> String
 fn HttpResponse::unwrap_json(Self) -> Json
-fn HttpResponse::writeHead(Self, Int, Map[String, String]) -> Unit
+fn HttpResponse::write_head(Self, Int, Map[String, String]) -> Unit
 impl Eq for HttpResponse
 impl Show for HttpResponse
 
@@ -129,7 +129,7 @@ impl Show for SSEEvent
 
 pub struct StreamReader {
   mut closed : Bool
-  buffer : @buffer.T
+  buffer : @buffer.Buffer
 }
 fn StreamReader::close(Self) -> Unit
 fn StreamReader::new() -> Self
