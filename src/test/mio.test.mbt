@@ -1,7 +1,7 @@
 ///|
 test "get" {
-  run(fn() {
-    if (try? get("https://echo.apifox.com/anything")) is Ok(a) {
+  @mio.run(fn() {
+    if (try? @mio.get("https://echo.apifox.com/anything")) is Ok(a) {
       println(a.unwrap_json())
     }
   })
@@ -9,8 +9,8 @@ test "get" {
 
 ///|
 test "post" {
-  run(fn() {
-    if (try? post("https://echo.apifox.com/anything", data={
+  @mio.run(fn() {
+    if (try? @mio.post("https://echo.apifox.com/anything", data={
         "id": 12,
         "name": "mio",
       }))
@@ -22,8 +22,9 @@ test "post" {
 
 ///|
 test "download" {
-  run(fn() {
-    if (try? download("https://api.github.com", save_path="api.json")) is Ok(_) {
+  @mio.run(fn() {
+    if (try? @mio.download("https://api.github.com", save_path="api.json"))
+      is Ok(_) {
       println("Downloaded")
     }
   })
@@ -31,9 +32,9 @@ test "download" {
 
 ///|
 test "stream" {
-  run(fn() {
+  @mio.run(fn() {
     let chunks = []
-    if (try? get_stream("https://httpbin.org/stream/3", chunk => {
+    if (try? @mio.get_stream("https://httpbin.org/stream/3", chunk => {
         println("receive: " + chunk)
         chunks.push(chunk)
       }))
@@ -51,9 +52,9 @@ test "stream" {
 
 ///|
 test "stream post" {
-  run(fn() {
+  @mio.run(fn() {
     let chunks = []
-    if (try? post_stream(
+    if (try? @mio.post_stream(
         "https://httpbin.org/stream/3",
         data={ "id": 12, "name": "mio" },
         chunk => {
