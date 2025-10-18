@@ -45,18 +45,28 @@ async fn trace(String, body? : String, headers? : Map[String, String], credentia
 
 // Errors
 pub suberror ExecError
+fn ExecError::output(Self, &Logger) -> Unit // from trait `Show`
+fn ExecError::to_string(Self) -> String // from trait `Show`
 impl Show for ExecError
 
 pub suberror IOError
+fn IOError::output(Self, &Logger) -> Unit // from trait `Show`
+fn IOError::to_string(Self) -> String // from trait `Show`
 impl Show for IOError
 
 pub suberror NetworkError
+fn NetworkError::output(Self, &Logger) -> Unit // from trait `Show`
+fn NetworkError::to_string(Self) -> String // from trait `Show`
 impl Show for NetworkError
 
 pub suberror StreamError
+fn StreamError::output(Self, &Logger) -> Unit // from trait `Show`
+fn StreamError::to_string(Self) -> String // from trait `Show`
 impl Show for StreamError
 
 pub suberror UnimplementedError
+fn UnimplementedError::output(Self, &Logger) -> Unit // from trait `Show`
+fn UnimplementedError::to_string(Self) -> String // from trait `Show`
 impl Show for UnimplementedError
 
 // Types and methods
@@ -65,6 +75,12 @@ pub(all) enum FetchCredentials {
   SameOrigin
   Include
 }
+fn FetchCredentials::equal(Self, Self) -> Bool // from trait `Eq`
+#deprecated
+fn FetchCredentials::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn FetchCredentials::output(Self, &Logger) -> Unit // from trait `Show`
+fn FetchCredentials::to_json(Self) -> Json // from trait `ToJson`
+fn FetchCredentials::to_string(Self) -> String // from trait `Show`
 impl Eq for FetchCredentials
 impl Show for FetchCredentials
 impl ToJson for FetchCredentials
@@ -75,6 +91,12 @@ pub(all) enum FetchMode {
   SameOrigin
   Navigate
 }
+fn FetchMode::equal(Self, Self) -> Bool // from trait `Eq`
+#deprecated
+fn FetchMode::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn FetchMode::output(Self, &Logger) -> Unit // from trait `Show`
+fn FetchMode::to_json(Self) -> Json // from trait `ToJson`
+fn FetchMode::to_string(Self) -> String // from trait `Show`
 impl Eq for FetchMode
 impl Show for FetchMode
 impl ToJson for FetchMode
@@ -90,6 +112,12 @@ pub(all) enum HttpMethod {
   CONNECT
   TRACE
 }
+fn HttpMethod::equal(Self, Self) -> Bool // from trait `Eq`
+#deprecated
+fn HttpMethod::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn HttpMethod::output(Self, &Logger) -> Unit // from trait `Show`
+fn HttpMethod::to_json(Self) -> Json // from trait `ToJson`
+fn HttpMethod::to_string(Self) -> String // from trait `Show`
 impl Eq for HttpMethod
 impl Show for HttpMethod
 impl ToJson for HttpMethod
@@ -101,6 +129,12 @@ pub(all) struct HttpRequest {
   query : String?
   body : Json?
 }
+fn HttpRequest::equal(Self, Self) -> Bool // from trait `Eq`
+#deprecated
+fn HttpRequest::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn HttpRequest::output(Self, &Logger) -> Unit // from trait `Show`
+fn HttpRequest::to_json(Self) -> Json // from trait `ToJson`
+fn HttpRequest::to_string(Self) -> String // from trait `Show`
 impl Eq for HttpRequest
 impl Show for HttpRequest
 impl ToJson for HttpRequest
@@ -110,8 +144,13 @@ pub struct HttpResponse {
   mut headers : Map[String, String]
   data : Bytes
 }
+fn HttpResponse::equal(Self, Self) -> Bool // from trait `Eq`
 fn HttpResponse::json(Self) -> Json raise @json.ParseError
+#deprecated
+fn HttpResponse::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn HttpResponse::output(Self, &Logger) -> Unit // from trait `Show`
 fn HttpResponse::text(Self) -> String
+fn HttpResponse::to_string(Self) -> String // from trait `Show`
 fn HttpResponse::unwrap_json(Self) -> Json
 fn HttpResponse::write_head(Self, Int, Map[String, String]) -> Unit
 impl Eq for HttpResponse
@@ -123,7 +162,12 @@ pub struct SSEEvent {
   mut id : String?
   mut retry : Int?
 }
+fn SSEEvent::equal(Self, Self) -> Bool // from trait `Eq`
+#deprecated
+fn SSEEvent::op_equal(Self, Self) -> Bool // from trait `Eq`
+fn SSEEvent::output(Self, &Logger) -> Unit // from trait `Show`
 fn SSEEvent::parse(String) -> Array[Self]
+fn SSEEvent::to_string(Self) -> String // from trait `Show`
 impl Eq for SSEEvent
 impl Show for SSEEvent
 
@@ -133,6 +177,8 @@ pub struct StreamReader {
 }
 fn StreamReader::close(Self) -> Unit
 fn StreamReader::new() -> Self
+fn StreamReader::output(Self, &Logger) -> Unit // from trait `Show`
+fn StreamReader::to_string(Self) -> String // from trait `Show`
 impl Show for StreamReader
 
 // Type aliases

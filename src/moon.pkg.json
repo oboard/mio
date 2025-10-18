@@ -1,34 +1,34 @@
 {
-    "targets": {
-        "mio_wasm.mbt": [
-            "wasm",
-            "wasm-gc"
-        ],
-        "mio_native.mbt": [
-            "native",
-            "llvm"
-        ],
-        "mio_js.mbt": [
-            "js"
-        ]
-    },
-    "import": [
-      "moonbitlang/x/fs",
-      "illusory0x0/native",
-      "moonbitlang/x/encoding"
+  "targets": {
+    "mio_wasm.mbt": [
+      "wasm",
+      "wasm-gc"
     ],
-    "warn-list": "-1-2-3-6",
-    "supported-targets": [
-        "js",
-        "native"
+    "mio_native.mbt": [
+      "native",
+      "llvm"
     ],
-    "native-stub": [
-        "mio_native.c",
-        "cJSON.c"
-    ],
-    "link": {
-        "native": {
-            "cc-link-flags": "-lcurl"
-        }
+    "mio_js.mbt": [
+      "js"
+    ]
+  },
+  "import": [
+    "moonbitlang/x/fs",
+    "illusory0x0/native",
+    "moonbitlang/x/encoding"
+  ],
+  "warn-list": "-1-2-3-6-29",
+  "supported-targets": [
+    "js",
+    "native"
+  ],
+  "native-stub": [
+    "mio_native.c",
+    "cJSON.c"
+  ],
+  "link": {
+    "native": {
+      "cc-link-flags": "-lcurl"
     }
+  }
 }

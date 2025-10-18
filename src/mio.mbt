@@ -21,7 +21,7 @@ pub(all) enum FetchCredentials {
   Omit
   SameOrigin
   Include
-} derive(ToJson(style="flat"), Show, Eq)
+} derive(ToJson, Show, Eq)
 
 ///|
 pub(all) enum FetchMode {
@@ -29,7 +29,7 @@ pub(all) enum FetchMode {
   NoCORS
   SameOrigin
   Navigate
-} derive(ToJson(style="flat"), Show, Eq)
+} derive(ToJson, Show, Eq)
 
 ///|
 pub struct HttpResponse {
@@ -91,9 +91,11 @@ pub fn SSEEvent::parse(data : String) -> Array[SSEEvent] {
       // Comment line, ignore
       continue
     } else if trimmed.find(":") is Some(colon_pos) {
-      let field = trimmed.substring(start=0, end=colon_pos)
+      let field = trimmed[0:colon_pos] catch { _ => "" }
       let value = if colon_pos + 1 < trimmed.length() {
-        trimmed.substring(start=colon_pos + 1, end=trimmed.length())
+        trimmed[colon_pos + 1:trimmed.length()].to_string() catch {
+          _ => ""
+        }
       } else {
         ""
       }
@@ -475,7 +477,7 @@ pub async fn request_stream(
         })
         .to_array()
         |> Map::from_array,
-        data: data.to_bytes(),
+        data: @encoding/utf8.encode(data),
       }
     _ => raise NetworkError
   }
