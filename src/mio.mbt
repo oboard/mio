@@ -167,8 +167,8 @@ pub fn handle(_reqMethod : String, _mapping : String) -> Unit {
 }
 
 ///|
-pub fn write_head(
-  self : HttpResponse,
+pub fn HttpResponse::write_head(
+  self : Self,
   statusCode : Int,
   headers : Map[String, String],
 ) -> Unit {
@@ -385,7 +385,7 @@ pub async fn request(
         headers: headers
         .iter()
         .map(fn(i : (String, Json)) -> (String, String) {
-          (i.0, i.1.as_string().unwrap_or(""))
+          (i.0, if i.1 is String(s) { s } else { "" })
         })
         .to_array()
         |> Map::from_array,
@@ -453,6 +453,7 @@ pub async fn request_stream(
   if mode is Some(m) {
     options.set("mode", m.to_string().to_json())
   }
+  
   match
     (try? @json.parse(
       request_stream_internal_ffi(
@@ -473,11 +474,11 @@ pub async fn request_stream(
         headers: headers
         .iter()
         .map(fn(i : (String, Json)) -> (String, String) {
-          (i.0, i.1.as_string().unwrap_or(""))
+          (i.0, if i.1 is String(s) { s } else { "" })
         })
         .to_array()
         |> Map::from_array,
-        data: @encoding/utf8.encode(data),
+        data: @utf8.encode(data),
       }
     _ => raise NetworkError
   }
