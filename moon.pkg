@@ -32,6 +32,7 @@ warnings = "-29"
 
 options(
   targets: {
+    "aes128.mbt": [ "native" ],
     "builder.mbt": [ "native", "js" ],
     "builder_wbtest.mbt": [ "native", "js" ],
     "client.js.mbt": [ "js" ],

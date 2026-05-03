@@ -173,3 +173,14 @@ test "quic v1 initial secrets match rfc9001" {
     content="9f50449e04a0e810283a1e9933adedd2",
   )
 }
+
+///|
+#cfg(target="native")
+test "aes128 encrypt block matches nist vector" {
+  let key = bytes_from_hex("000102030405060708090a0b0c0d0e0f")
+  let block = bytes_from_hex("00112233445566778899aabbccddeeff")
+  inspect(
+    @crypto.bytes_to_hex_string(aes128_encrypt_block(key, block)),
+    content="69c4e0d86a7b0430d8cdb78070b4c55a",
+  )
+}
