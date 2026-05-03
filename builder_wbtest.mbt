@@ -328,3 +328,23 @@ async test "quic sends client initial datagram over udp" {
     )
   })
 }
+
+///|
+#cfg(target="native")
+test "tls13 client hello encodes h3 quic extensions" {
+  let hello = tls13_encode_client_hello({
+    server_name: "example.com",
+    alpn: "h3",
+    random: Bytes::make(32, b'\x11'),
+    legacy_session_id: Bytes::make(8, b'\x22'),
+    x25519_public_key: Bytes::make(32, b'\x33'),
+    transport_parameters: bytes_from_hex("000400020000"),
+  })
+  inspect(hello[0].to_int(), content="1")
+  assert_true(hello.length() > 140)
+  inspect(@crypto.bytes_to_hex_string(hello[9:13]), content="11111111")
+  inspect(
+    @crypto.bytes_to_hex_string(hello[hello.length() - 10:hello.length()]),
+    content="00390006000400020000",
+  )
+}

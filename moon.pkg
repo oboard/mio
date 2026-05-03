@@ -56,6 +56,7 @@ options(
     "resolve_url_wbtest.mbt": [ "native" ],
     "send.mbt": [ "native" ],
     "send_wbtest.mbt": [ "native" ],
+    "tls13_client_hello.mbt": [ "native" ],
     "types.mbt": [ "native", "js" ],
     "utils.mbt": [ "native" ],
     "wasm_unused_imports.mbt": [ "wasm" ],
