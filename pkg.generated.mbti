@@ -1,0 +1,120 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "oboard/mio"
+
+import {
+  "moonbitlang/async/io",
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub async fn get(String, headers? : Map[String, String], body? : &@io.Data, proxy? : Client) -> ResponseBody
+
+pub async fn get_stream(String, headers? : Map[String, String], body? : &@io.Data, proxy? : Client) -> (Response, Client)
+
+pub async fn post(String, &@io.Data, headers? : Map[String, String], proxy? : Client) -> ResponseBody
+
+pub async fn post_stream(String, headers? : Map[String, String], proxy? : Client) -> Client
+
+pub async fn put(String, &@io.Data, headers? : Map[String, String], proxy? : Client) -> ResponseBody
+
+pub async fn put_stream(String, headers? : Map[String, String], proxy? : Client) -> Client
+
+// Errors
+pub suberror HttpProtocolError {
+  BadRequest
+  HttpVersionNotSupported(String)
+  NotImplemented
+} derive(ToJson, @debug.Debug)
+#deprecated
+pub impl Show for HttpProtocolError
+
+pub suberror IncorrectBodyLength derive(ToJson, @debug.Debug)
+
+pub suberror ProxyError {
+  ProxyError(Response)
+} derive(ToJson, @debug.Debug)
+#deprecated
+pub impl Show for ProxyError
+
+pub suberror URIParseError {
+  InvalidFormat
+  UnsupportedProtocol(String)
+} derive(ToJson, @debug.Debug)
+#deprecated
+pub impl Show for URIParseError
+
+// Types and methods
+pub struct Client {
+  // private fields
+}
+pub async fn Client::Client(String, headers? : Map[String, String], proxy? : Self, verify? : Bool) -> Self
+pub fn Client::close(Self) -> Unit
+pub async fn Client::end_request(Self) -> Response
+pub async fn Client::enter_passthrough_mode(Self) -> Unit
+pub async fn Client::flush(Self) -> Unit
+pub async fn Client::get(Self, String, extra_headers? : Map[String, String], body? : &@io.Data) -> Response
+pub async fn Client::new(String, headers? : Map[String, String], proxy? : Self, verify? : Bool) -> Self
+pub async fn Client::post(Self, String, &@io.Data, extra_headers? : Map[String, String]) -> Response
+pub async fn Client::put(Self, String, &@io.Data, extra_headers? : Map[String, String]) -> Response
+pub async fn Client::request(Self, RequestMethod, String, extra_headers? : Map[String, String]) -> Unit
+pub async fn Client::skip_response_body(Self) -> Unit
+pub impl @io.Reader for Client
+pub impl @io.Writer for Client
+
+pub struct Cookie {
+  name : String
+  value : String
+  path : String?
+  expires_raw : String?
+  max_age : Int64?
+  domain : String?
+  secure : Bool
+  http_only : Bool
+  extensions : Array[String]
+} derive(ToJson, @debug.Debug)
+pub fn Cookie::Cookie(String, String, path? : String, expires_raw? : String, max_age? : Int64, domain? : String, secure? : Bool, http_only? : Bool, extensions? : Array[String]) -> Self
+pub fn Cookie::new(String, String, path? : String, expires_raw? : String, max_age? : Int64, domain? : String, secure? : Bool, http_only? : Bool, extensions? : Array[String]) -> Self
+
+pub(all) enum Protocol {
+  Http
+  Https
+} derive(Compare, Eq, Hash, ToJson, @debug.Debug)
+pub fn Protocol::default_port(Self) -> Int
+#deprecated
+pub impl Show for Protocol
+
+pub(all) enum RequestMethod {
+  Get
+  Head
+  Post
+  Put
+  Delete
+  Connect
+  Options
+  Trace
+  Patch
+} derive(Compare, Eq, Hash, ToJson, @debug.Debug)
+#deprecated
+pub impl Show for RequestMethod
+
+pub(all) struct Response {
+  code : Int
+  reason : String
+  headers : Map[String, String]
+  cookies : Array[Cookie]
+} derive(ToJson, @debug.Debug)
+#deprecated
+pub impl Show for Response
+
+pub(all) struct ResponseBody {
+  response : Response
+  body : &@io.Data
+}
+pub fn ResponseBody::binary(Self) -> Bytes
+pub fn ResponseBody::json(Self) -> Json raise
+pub fn ResponseBody::text(Self) -> String raise
+
+// Type aliases
+
+// Traits
+
