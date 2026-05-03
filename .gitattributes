@@ -1,3 +1,0 @@
-# Generated files should not be included in language statistics
-src/cJSON.c linguist-generated=true
-src/cJSON.h linguist-generated=true
