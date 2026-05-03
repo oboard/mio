@@ -1,4 +1,3 @@
-
 ///|
 fn ascii_to_string(ascii : BytesView) -> String {
   let builder = StringBuilder::new()

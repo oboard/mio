@@ -1,4 +1,3 @@
-
 ///|
 pub(all) struct Buffer {
   mut buf : FixedArray[Byte]

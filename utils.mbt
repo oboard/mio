@@ -1,4 +1,3 @@
-
 ///|
 fn encode_int(value : Int, base~ : Int) -> Bytes {
   let len = for x = value, len = 1; x >= base; {

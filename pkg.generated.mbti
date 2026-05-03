@@ -7,9 +7,17 @@ import {
 }
 
 // Values
+pub async fn delete(String, headers? : Map[String, String], body? : &@io.Data, proxy? : Client) -> ResponseBody
+
 pub async fn get(String, headers? : Map[String, String], body? : &@io.Data, proxy? : Client) -> ResponseBody
 
 pub async fn get_stream(String, headers? : Map[String, String], body? : &@io.Data, proxy? : Client) -> (Response, Client)
+
+pub async fn head(String, headers? : Map[String, String], proxy? : Client) -> ResponseBody
+
+pub async fn options(String, headers? : Map[String, String], body? : &@io.Data, proxy? : Client) -> ResponseBody
+
+pub async fn patch(String, &@io.Data, headers? : Map[String, String], proxy? : Client) -> ResponseBody
 
 pub async fn post(String, &@io.Data, headers? : Map[String, String], proxy? : Client) -> ResponseBody
 
@@ -20,6 +28,23 @@ pub async fn put(String, &@io.Data, headers? : Map[String, String], proxy? : Cli
 pub async fn put_stream(String, headers? : Map[String, String], proxy? : Client) -> Client
 
 // Errors
+pub suberror HpackError {
+  HpackBadInteger
+  HpackBadString
+  HpackBadHuffmanPadding
+  HpackHuffmanEOS
+  HpackBadIndex(Int)
+  HpackBadDynamicTableSize(Int)
+} derive(ToJson, @debug.Debug)
+
+pub suberror Http2Error {
+  Http2BadFrame
+  Http2ConnectionError(String)
+  Http2StreamReset(Int)
+  Http2MissingStatus
+  Http3RequiresQuic
+} derive(ToJson, @debug.Debug)
+
 pub suberror HttpProtocolError {
   BadRequest
   HttpVersionNotSupported(String)
@@ -35,6 +60,10 @@ pub suberror ProxyError {
 } derive(ToJson, @debug.Debug)
 #deprecated
 pub impl Show for ProxyError
+
+pub suberror RequestError {
+  UnsupportedHttpVersion(HttpVersion)
+} derive(ToJson, @debug.Debug)
 
 pub suberror URIParseError {
   InvalidFormat
@@ -61,6 +90,24 @@ pub async fn Client::skip_response_body(Self) -> Unit
 pub impl @io.Reader for Client
 pub impl @io.Writer for Client
 
+pub struct ClientBuilder {
+  headers : Map[String, String]
+  mut proxy : Client?
+  mut timeout : Int?
+  mut version : HttpVersion
+  mut verify : Bool
+}
+pub fn ClientBuilder::build(Self) -> RequestClient
+pub fn ClientBuilder::danger_accept_invalid_certs(Self, Bool) -> Self
+pub fn ClientBuilder::default_header(Self, String, String) -> Self
+pub fn ClientBuilder::default_headers(Self, Map[String, String]) -> Self
+pub fn ClientBuilder::http1_only(Self) -> Self
+pub fn ClientBuilder::http2_prior_knowledge(Self) -> Self
+pub fn ClientBuilder::http3_prior_knowledge(Self) -> Self
+pub fn ClientBuilder::new() -> Self
+pub fn ClientBuilder::proxy(Self, Client) -> Self
+pub fn ClientBuilder::timeout(Self, Int) -> Self
+
 pub struct Cookie {
   name : String
   value : String
@@ -75,6 +122,12 @@ pub struct Cookie {
 pub fn Cookie::Cookie(String, String, path? : String, expires_raw? : String, max_age? : Int64, domain? : String, secure? : Bool, http_only? : Bool, extensions? : Array[String]) -> Self
 pub fn Cookie::new(String, String, path? : String, expires_raw? : String, max_age? : Int64, domain? : String, secure? : Bool, http_only? : Bool, extensions? : Array[String]) -> Self
 
+pub(all) enum HttpVersion {
+  Http1
+  Http2
+  Http3
+} derive(Compare, Eq, Hash, ToJson, @debug.Debug)
+
 pub(all) enum Protocol {
   Http
   Https
@@ -82,6 +135,37 @@ pub(all) enum Protocol {
 pub fn Protocol::default_port(Self) -> Int
 #deprecated
 pub impl Show for Protocol
+
+pub struct RequestBuilder {
+  client : RequestClient
+  meth : RequestMethod
+  uri : String
+  headers : Map[String, String]
+  mut body : &@io.Data
+}
+pub fn RequestBuilder::body(Self, &@io.Data) -> Self
+pub fn RequestBuilder::header(Self, String, String) -> Self
+pub fn RequestBuilder::headers(Self, Map[String, String]) -> Self
+pub fn RequestBuilder::json(Self, Json) -> Self
+pub async fn RequestBuilder::send(Self) -> ResponseBody
+
+pub struct RequestClient {
+  headers : Map[String, String]
+  proxy : Client?
+  timeout : Int?
+  version : HttpVersion
+  verify : Bool
+}
+pub fn RequestClient::builder() -> ClientBuilder
+pub fn RequestClient::delete(Self, String) -> RequestBuilder
+pub fn RequestClient::get(Self, String) -> RequestBuilder
+pub fn RequestClient::head(Self, String) -> RequestBuilder
+pub fn RequestClient::new() -> Self
+pub fn RequestClient::options(Self, String) -> RequestBuilder
+pub fn RequestClient::patch(Self, String) -> RequestBuilder
+pub fn RequestClient::post(Self, String) -> RequestBuilder
+pub fn RequestClient::put(Self, String) -> RequestBuilder
+pub fn RequestClient::request(Self, RequestMethod, String) -> RequestBuilder
 
 pub(all) enum RequestMethod {
   Get

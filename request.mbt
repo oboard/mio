@@ -1,4 +1,3 @@
-
 ///|
 pub(all) enum Protocol {
   Http
@@ -18,6 +17,24 @@ pub suberror URIParseError {
   InvalidFormat
   UnsupportedProtocol(String)
 } derive(Debug, ToJson)
+
+///|
+#warnings("-unused_constructor")
+pub suberror RequestError {
+  UnsupportedHttpVersion(HttpVersion)
+} derive(Debug, ToJson)
+
+///|
+#cfg(target="native")
+fn ensure_supported_http_version(version : HttpVersion) -> Unit {
+  ignore(version)
+}
+
+///|
+#cfg(target="js")
+fn ensure_supported_http_version(_version : HttpVersion) -> Unit {
+  ()
+}
 
 ///|
 fn resolve_url(uri : String) -> (Protocol, Int, String, String) raise {
@@ -46,18 +63,89 @@ fn resolve_url(uri : String) -> (Protocol, Int, String, String) raise {
 }
 
 ///|
+#cfg(target="native")
 async fn perform_request(
   uri : String,
   meth : RequestMethod,
   headers : Map[String, String],
   body : &@io.Data,
   proxy? : Client,
+  version? : HttpVersion = Http1,
+  verify? : Bool = true,
 ) -> (Response, &@io.Data) {
+  ensure_supported_http_version(version)
+  match version {
+    Http2 => {
+      let response_body = h2_perform_request(
+        uri,
+        meth,
+        headers,
+        body,
+        proxy?,
+        verify~,
+      )
+      return (response_body.response, response_body.body)
+    }
+    Http3 => {
+      let response_body = h3_perform_request(uri, meth, headers, body)
+      return (response_body.response, response_body.body)
+    }
+    Http1 => ()
+  }
+  let (protocol, port, host, path) = resolve_url(uri)
+  let client = Client::connect(
+    host,
+    headers~,
+    protocol~,
+    port~,
+    proxy?,
+    verify~,
+  )
+  defer client.close()
+  let response = client..request(meth, path)..write(body).end_request()
+  (response, client.read_all())
+}
+
+///|
+#cfg(target="js")
+async fn perform_request(
+  uri : String,
+  meth : RequestMethod,
+  headers : Map[String, String],
+  body : &@io.Data,
+  proxy? : Client,
+  version? : HttpVersion = Http1,
+  verify? : Bool = true,
+) -> (Response, &@io.Data) {
+  ignore(verify)
+  ensure_supported_http_version(version)
   let (protocol, port, host, path) = resolve_url(uri)
   let client = Client::connect(host, headers~, protocol~, port~, proxy?)
   defer client.close()
   let response = client..request(meth, path)..write(body).end_request()
   (response, client.read_all())
+}
+
+///|
+async fn perform_request_body_with_options(
+  uri : String,
+  meth : RequestMethod,
+  headers : Map[String, String],
+  body : &@io.Data,
+  proxy? : Client,
+  version? : HttpVersion = Http1,
+  verify? : Bool = true,
+) -> ResponseBody {
+  let (response, body) = perform_request(
+    uri,
+    meth,
+    headers,
+    body,
+    proxy?,
+    version~,
+    verify~,
+  )
+  { response, body }
 }
 
 ///|
@@ -111,6 +199,49 @@ pub async fn post(
   proxy? : Client,
 ) -> ResponseBody {
   perform_request_body(uri, Post, headers, content, proxy?)
+}
+
+///|
+/// Similar to `get`, but performs a `DELETE` request instead.
+pub async fn delete(
+  uri : String,
+  headers? : Map[String, String] = {},
+  body? : &@io.Data = b"",
+  proxy? : Client,
+) -> ResponseBody {
+  perform_request_body(uri, Delete, headers, body, proxy?)
+}
+
+///|
+/// Similar to `get`, but performs a `PATCH` request instead.
+pub async fn patch(
+  uri : String,
+  content : &@io.Data,
+  headers? : Map[String, String] = {},
+  proxy? : Client,
+) -> ResponseBody {
+  perform_request_body(uri, Patch, headers, content, proxy?)
+}
+
+///|
+/// Similar to `get`, but performs a `HEAD` request instead.
+pub async fn head(
+  uri : String,
+  headers? : Map[String, String] = {},
+  proxy? : Client,
+) -> ResponseBody {
+  perform_request_body(uri, Head, headers, b"", proxy?)
+}
+
+///|
+/// Similar to `get`, but performs an `OPTIONS` request instead.
+pub async fn options(
+  uri : String,
+  headers? : Map[String, String] = {},
+  body? : &@io.Data = b"",
+  proxy? : Client,
+) -> ResponseBody {
+  perform_request_body(uri, Options, headers, body, proxy?)
 }
 
 ///|

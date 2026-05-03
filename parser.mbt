@@ -1,4 +1,3 @@
-
 ///|
 #cfg(target="native")
 priv enum BodyKind {

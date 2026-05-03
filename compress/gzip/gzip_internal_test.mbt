@@ -1,4 +1,3 @@
-
 ///|
 enum Step {
   Min

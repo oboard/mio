@@ -13,7 +13,7 @@ A powerful and modern HTTP networking library for MoonBit with multi-backend sup
 - 📁 **File Downloads**: Built-in file download capabilities with custom save paths
 - 🌊 **Stream Processing**: Real-time data streaming with callback support
 - 📦 **Binary Data Support**: Native handling of binary data with unified `Bytes` interface across all backends
-- 🎯 **Multi-Backend**: Support for Native (libcurl), JavaScript (Fetch API), and WASM
+- 🎯 **Multi-Backend**: Support for Native (MoonBit transport), JavaScript (Fetch API), and WASM
 - ⚡ **Type Safety**: Full MoonBit type system support with error handling
 - 🔧 **Flexible Options**: Headers, credentials, modes, and request customization
 
@@ -39,6 +39,29 @@ let response = @mio.get("https://api.github.com") catch {
 }
 println("Response: " + response.text())
 ```
+
+### Request Builder
+
+```moonbit nocheck
+///|
+let client = @mio.RequestClient::builder()
+  .default_header("User-Agent", "mio")
+  .timeout(10000)
+  .build()
+
+///|
+let response = client
+  .post("https://api.example.com/items")
+  .json({ "name": "moonbit" })
+  .send()
+```
+
+Native implements HTTP/1.1 directly and includes an experimental MoonBit HTTP/2
+prior-knowledge transport with HPACK and frame parsing. HTTP/2 over TLS still
+depends on runtime ALPN support, which `moonbitlang/async/tls` does not expose
+yet. HTTP/3 is wired through the same request builder API, but requires a native
+QUIC/TLS 1.3 transport before it can complete requests. JavaScript uses the
+platform Fetch implementation, so protocol negotiation is handled by the runtime.
 
 ## Contributing
 

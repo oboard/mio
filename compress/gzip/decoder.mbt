@@ -1,4 +1,3 @@
-
 ///|
 priv enum DecodeMode {
   Header

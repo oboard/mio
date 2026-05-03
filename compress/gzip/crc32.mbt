@@ -1,4 +1,3 @@
-
 ///|
 let crc32_table : FixedArray[UInt] = FixedArray::makei(256, i => {
   let mut crc = i.reinterpret_as_uint()

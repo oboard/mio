@@ -1,4 +1,3 @@
-
 ///|
 fn log_headers(headers : Map[String, String], logger : &Logger) -> Unit {
   for k, v in headers {

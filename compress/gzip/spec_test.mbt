@@ -1,4 +1,3 @@
-
 ///|
 /// Public gzip/deflate vectors in this file come from zlib's `test/infcover.c`
 /// in the `madler/zlib` repository.

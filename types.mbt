@@ -1,4 +1,3 @@
-
 ///|
 pub(all) enum RequestMethod {
   Get
@@ -10,6 +9,13 @@ pub(all) enum RequestMethod {
   Options
   Trace
   Patch
+} derive(Debug, Eq, Compare, Hash, ToJson)
+
+///|
+pub(all) enum HttpVersion {
+  Http1
+  Http2
+  Http3
 } derive(Debug, Eq, Compare, Hash, ToJson)
 
 ///|

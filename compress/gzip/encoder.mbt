@@ -1,4 +1,3 @@
-
 ///|
 let encoder_block_overhead_bits = 10
 

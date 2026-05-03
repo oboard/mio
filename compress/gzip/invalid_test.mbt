@@ -1,4 +1,3 @@
-
 ///|
 test "decoder rejects invalid gzip header" {
   let result = try? decode(

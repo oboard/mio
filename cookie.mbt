@@ -1,4 +1,3 @@
-
 ///|
 pub fn Cookie::new(
   name : String,

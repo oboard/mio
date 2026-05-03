@@ -1,4 +1,3 @@
-
 ///|
 fn RequestMethod::write_show(self : RequestMethod, logger : &Logger) -> Unit {
   match self {

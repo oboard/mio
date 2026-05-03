@@ -3,6 +3,8 @@ import {
   "moonbitlang/core/string",
   "moonbitlang/core/buffer",
   "moonbitlang/core/json",
+  "moonbitlang/core/encoding/utf8",
+  "moonbitlang/async",
   "moonbitlang/async/io",
   "moonbitlang/async/socket",
   "moonbitlang/async/tls",
@@ -29,11 +31,16 @@ warnings = "-29"
 
 options(
   targets: {
+    "builder.mbt": [ "native", "js" ],
+    "builder_wbtest.mbt": [ "native", "js" ],
     "client.js.mbt": [ "js" ],
     "client.mbt": [ "native" ],
     "cookie.mbt": [ "native", "js" ],
     "cookie_wbtest.mbt": [ "native" ],
     "deprecated.mbt": [ "native", "js" ],
+    "h2.mbt": [ "native" ],
+    "hpack.mbt": [ "native" ],
+    "hpack_huffman.mbt": [ "native" ],
     "parser.mbt": [ "native" ],
     "parser_wbtest.mbt": [ "native" ],
     "request.mbt": [ "native", "js" ],

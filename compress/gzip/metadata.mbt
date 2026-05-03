@@ -1,4 +1,3 @@
-
 ///|
 priv suberror FormatError {
   InvalidHeader(String)
