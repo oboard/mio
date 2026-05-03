@@ -2,7 +2,7 @@
 
 A powerful and modern HTTP networking library for MoonBit with multi-backend support.
 
-[![Version](https://img.shields.io/badge/version-0.4.0-blue.svg)](https://github.com/oboard/mio)
+[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/oboard/mio)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
 ## Features
