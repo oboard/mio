@@ -229,3 +229,31 @@ test "quic client initial packet opens after protection" {
   inspect(opened.packet_number, content="2")
   assert_eq(opened.payload, payload)
 }
+
+///|
+#cfg(target="native")
+test "quic crypto and stream frames round trip" {
+  let crypto = quic_encode_crypto_frame(7, b"client-hello")
+  let (crypto_frame, crypto_pos) = quic_decode_crypto_frame(crypto, 0)
+  inspect(crypto_pos, content="15")
+  inspect(crypto_frame.offset, content="7")
+  assert_eq(crypto_frame.data, b"client-hello")
+  let stream = quic_encode_stream_frame(0, 5, true, b"headers")
+  let (stream_frame, stream_pos) = quic_decode_stream_frame(stream, 0)
+  inspect(stream_pos, content="11")
+  inspect(stream_frame.stream_id, content="0")
+  inspect(stream_frame.offset, content="5")
+  inspect(stream_frame.fin, content="true")
+  assert_eq(stream_frame.data, b"headers")
+}
+
+///|
+#cfg(target="native")
+test "quic ack frame round trips a single range" {
+  let encoded = quic_encode_ack(9, 1, 3)
+  let (frame, pos) = quic_decode_ack(encoded, 0)
+  inspect(pos, content="5")
+  inspect(frame.largest_acknowledged, content="9")
+  inspect(frame.ack_delay, content="1")
+  inspect(frame.first_ack_range, content="3")
+}
