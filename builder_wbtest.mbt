@@ -282,3 +282,23 @@ test "quic ack frame round trips a single range" {
   inspect(frame.ack_delay, content="1")
   inspect(frame.first_ack_range, content="3")
 }
+
+///|
+#cfg(target="native")
+test "quic client initial datagram carries crypto frame" {
+  let dcid = bytes_from_hex("8394c8f03e515708")
+  let scid = bytes_from_hex("f067a5502a4262b5")
+  let datagram = quic_build_client_initial_datagram(
+    dcid, scid, 0, b"tls-client-hello",
+  )
+  inspect(datagram.packet.length() >= 1200, content="true")
+  let opened = quic_open_client_initial_packet(datagram.packet, dcid)
+  let (crypto_frame, pos) = quic_decode_crypto_frame(opened.payload, 0)
+  inspect(pos, content="19")
+  assert_eq(crypto_frame.data, b"tls-client-hello")
+  let mut all_padding = true
+  for i in pos..<opened.payload.length() {
+    all_padding = all_padding && opened.payload[i] == b'\x00'
+  }
+  inspect(all_padding, content="true")
+}

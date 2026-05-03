@@ -217,6 +217,32 @@ fn quic_build_client_initial_packet(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
+fn quic_build_client_initial_datagram(
+  destination_connection_id : Bytes,
+  source_connection_id : Bytes,
+  packet_number : Int,
+  crypto_data : Bytes,
+) -> QuicProtectedPacket raise {
+  let crypto_frame = quic_encode_crypto_frame(0, crypto_data)
+  let mut payload = crypto_frame
+  let mut packet = quic_build_client_initial_packet(
+    destination_connection_id, source_connection_id, b"", packet_number, payload,
+  )
+  while packet.packet.length() < 1200 {
+    let padded = @buffer.new()
+    padded.write_bytes(payload)
+    padded.write_bytes(quic_encode_padding(1200 - packet.packet.length()))
+    payload = padded.contents()
+    packet = quic_build_client_initial_packet(
+      destination_connection_id, source_connection_id, b"", packet_number, payload,
+    )
+  }
+  packet
+}
+
+///|
+#cfg(target="native")
 fn quic_initial_packet_number_offset(packet : Bytes) -> (Int, Int, Int) raise {
   let long_header = quic_parse_long_header(packet)
   guard long_header.packet_type == 0 else { raise QuicPacketTooShort }
