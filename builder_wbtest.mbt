@@ -150,6 +150,31 @@ test "http3 headers round trip through qpack" {
 
 ///|
 #cfg(target="native")
+test "http3 settings and request stream round trip" {
+  let control = h3_encode_control_stream([(0x1, 0), (0x7, 16)])
+  let (stream_type, frame_offset) = quic_read_varint(control, 0)
+  inspect(stream_type, content="0")
+  let settings = h3_decode_settings(
+    h3_decode_frame(control, offset=frame_offset),
+  )
+  inspect(settings, content="[(1, 0), (7, 16)]")
+  let stream = h3_encode_request_stream(
+    [
+      (":method", "POST"),
+      (":scheme", "https"),
+      (":path", "/submit"),
+      (":authority", "example.com"),
+    ],
+    b"ok",
+  )
+  let frames = h3_decode_frames(stream)
+  inspect(frames.length(), content="2")
+  inspect(h3_decode_headers(frames[0])[0], content="(\":method\", \"POST\")")
+  inspect(@utf8.decode_lossy(frames[1].payload), content="ok")
+}
+
+///|
+#cfg(target="native")
 test "quic v1 initial secrets match rfc9001" {
   let secrets = quic_initial_secrets(bytes_from_hex("8394c8f03e515708"))
   inspect(
