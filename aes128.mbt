@@ -4,6 +4,7 @@ priv suberror Aes128Error {
   AesBadKeyLength
   AesBadBlockLength
   AesBadNonceLength
+  AesBadTag
 } derive(Debug, ToJson)
 
 ///|
@@ -311,4 +312,37 @@ fn aes128_gcm_encrypt(
     tag.write_byte(e[i] ^ s[i])
   }
   { ciphertext, tag: tag.contents() }
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn aes128_gcm_decrypt(
+  key : Bytes,
+  iv : Bytes,
+  ciphertext : Bytes,
+  aad : Bytes,
+  tag : Bytes,
+) -> Bytes raise {
+  guard tag.length() == 16 else { raise AesBadTag }
+  let h = aes128_encrypt_block(
+    key, b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+  )
+  let s = aes_gcm_ghash(h, aad, ciphertext)
+  let e = aes128_encrypt_block(key, aes_gcm_counter_block(iv, 1U))
+  let mut good = true
+  for i in 0..<16 {
+    good = good && (e[i] ^ s[i]) == tag[i]
+  }
+  guard good else { raise AesBadTag }
+  let plaintext = @buffer.new()
+  for offset = 0, counter = 2U; offset < ciphertext.length(); {
+    let stream = aes128_encrypt_block(key, aes_gcm_counter_block(iv, counter))
+    let len = @cmp.minimum(16, ciphertext.length() - offset)
+    for i in 0..<len {
+      plaintext.write_byte(ciphertext[offset + i] ^ stream[i])
+    }
+    continue offset + len, counter + 1U
+  }
+  plaintext.contents()
 }

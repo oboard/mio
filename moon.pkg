@@ -49,6 +49,7 @@ options(
     "qpack.mbt": [ "native" ],
     "quic.mbt": [ "native" ],
     "quic_crypto.mbt": [ "native" ],
+    "quic_packet.mbt": [ "native" ],
     "request.mbt": [ "native", "js" ],
     "resolve_url_wbtest.mbt": [ "native" ],
     "send.mbt": [ "native" ],

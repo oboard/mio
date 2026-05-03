@@ -214,3 +214,18 @@ test "aes128 gcm encrypts one block nist vector" {
     content="ab6e47d42cec13bdf53a67b21257bddf",
   )
 }
+
+///|
+#cfg(target="native")
+test "quic client initial packet opens after protection" {
+  let dcid = bytes_from_hex("8394c8f03e515708")
+  let scid = bytes_from_hex("f067a5502a4262b5")
+  let payload = bytes_from_hex("060040f1010000ed03030000000000000000")
+  let initial_packet = quic_build_client_initial_packet(
+    dcid, scid, b"", 2, payload,
+  )
+  inspect(initial_packet.packet[0] == b'\xc0', content="false")
+  let opened = quic_open_client_initial_packet(initial_packet.packet, dcid)
+  inspect(opened.packet_number, content="2")
+  assert_eq(opened.payload, payload)
+}
