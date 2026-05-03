@@ -1,16 +1,3 @@
-// Copyright 2025 International Digital Economy Academy
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 ///|
 let encoder_block_overhead_bits = 10
@@ -35,12 +22,15 @@ pub struct Encoder {
   priv history : FixedArray[Byte]
   priv mut history_pos : Int
   priv mut history_len : Int
+}
 
-  fn new(
-    mtime? : UInt,
-    extra_flags? : Byte,
-    operating_system? : Byte,
-  ) -> Encoder
+///|
+pub fn Encoder::Encoder(
+  mtime? : UInt = 0U,
+  extra_flags? : Byte = b'\x00',
+  operating_system? : Byte = b'\xff',
+) -> Encoder {
+  Encoder::new(mtime~, extra_flags~, operating_system~)
 }
 
 ///|

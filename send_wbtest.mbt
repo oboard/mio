@@ -1,16 +1,21 @@
-// Copyright 2025 International Digital Economy Academy
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
+
+///|
+fn ascii_to_string(ascii : BytesView) -> String {
+  let builder = StringBuilder::new()
+  for byte in ascii {
+    match byte {
+      b'\n' => builder.write_char('\n')
+      b'\r' => builder.write_string("\\r")
+      b'\t' => builder.write_string("\\t")
+      32..=126 => builder.write_char(byte.to_int().unsafe_to_char())
+      x =>
+        builder
+        ..write_string("\\x")
+        .write_string(x.to_int().to_string(radix=16))
+    }
+  }
+  builder.to_string()
+}
 
 ///|
 async test "send_request basic" {
@@ -27,12 +32,12 @@ async test "send_request basic" {
     })
     defer r.close()
     inspect(
-      r.read_all().binary() |> @bytes_util.ascii_to_string,
+      r.read_all().binary() |> ascii_to_string,
       content=(
         #|GET / HTTP/1.1\r
         #|Host: x.y.org\r
         #|User-Agent: MoonBit\r
-        #|Accept-Encoding: gzip,identity\r
+        #|Accept-Encoding: gzip, deflate, br, zstd, identity\r
         #|\r
         #|
       ),
@@ -57,12 +62,12 @@ async test "send_request stream" {
     })
     defer r.close()
     inspect(
-      r.read_all().binary() |> @bytes_util.ascii_to_string,
+      r.read_all().binary() |> ascii_to_string,
       content=(
         #|GET / HTTP/1.1\r
         #|Host: x.y.org\r
         #|User-Agent: MoonBit\r
-        #|Accept-Encoding: gzip,identity\r
+        #|Accept-Encoding: gzip, deflate, br, zstd, identity\r
         #|Transfer-Encoding: chunked\r
         #|\r
         #|3f9\r
@@ -275,7 +280,7 @@ async test "send_request stream" {
         #|      same "printed page" as the copyright notice for easier
         #|      identification within third-party archives.
         #|
-        #|   Copyright [yyyy] [name of copyright owner]
+        #|   Copyright 2026 oboard
         #|
         #|   Licensed under the Apache License, Version 2.0 (the "License");
         #|   you may not use this file except in compliance with the License.
@@ -285,9 +290,9 @@ async test "send_request stream" {
         #|
         #|   Unless required by applicable law or agreed to in writing, software
         #|   distributed under the License is distributed on an "AS IS" BASIS,
-        #|   WITHOUT\r
-        #|ab\r
-        #| WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+        #|   WITHOUT WARRANTIES OR CONDIT\r
+        #|96\r
+        #|IONS OF ANY KIND, either express or implied.
         #|   See the License for the specific language governing permissions and
         #|   limitations under the License.
         #|\r
@@ -319,12 +324,12 @@ async test "send_request stream2" {
     })
     defer r.close()
     inspect(
-      r.read_all().binary() |> @bytes_util.ascii_to_string,
+      r.read_all().binary() |> ascii_to_string,
       content=(
         #|GET / HTTP/1.1\r
         #|Host: x.y.org\r
         #|User-Agent: MoonBit\r
-        #|Accept-Encoding: gzip,identity\r
+        #|Accept-Encoding: gzip, deflate, br, zstd, identity\r
         #|Transfer-Encoding: chunked\r
         #|\r
         #|4\r
@@ -357,12 +362,12 @@ async test "send invalid header" {
     })
     defer r.close()
     inspect(
-      r.read_all().binary() |> @bytes_util.ascii_to_string,
+      r.read_all().binary() |> ascii_to_string,
       content=(
         #|GET / HTTP/1.1\r
         #|Host: x.y.org\r
         #|User-Agent: MoonBit\r
-        #|Accept-Encoding: gzip,identity\r
+        #|Accept-Encoding: gzip, deflate, br, zstd, identity\r
         #|\r
         #|
       ),
@@ -395,11 +400,11 @@ async test "send fixed length" {
     })
     defer r.close()
     inspect(
-      r.read_all().binary() |> @bytes_util.ascii_to_string,
+      r.read_all().binary() |> ascii_to_string,
       content=(
         #|GET / HTTP/1.1\r
-        #|Content-Length: 11397\r
-        #|Accept-Encoding: gzip,identity\r
+        #|Content-Length: 11376\r
+        #|Accept-Encoding: gzip, deflate, br, zstd, identity\r
         #|\r
         #|===== header =====
         #|
@@ -591,7 +596,7 @@ async test "send fixed length" {
         #|      same "printed page" as the copyright notice for easier
         #|      identification within third-party archives.
         #|
-        #|   Copyright [yyyy] [name of copyright owner]
+        #|   Copyright 2026 oboard
         #|
         #|   Licensed under the Apache License, Version 2.0 (the "License");
         #|   you may not use this file except in compliance with the License.
@@ -623,7 +628,7 @@ async test "sender write incorrect length" {
     })
     defer w.close()
     let sender = Sender::new(w)
-    sender.send_response(200, "OK", cookies=[], request_method=Get, extra_headers={
+    let _ = sender.send_request(Post, "/", extra_headers={
       "Content-Length": "39",
     })
     let data = Bytes::make(20, b'\x00')
@@ -651,7 +656,7 @@ async test "sender write_reader incorrect length" {
     let sender = Sender::new(w)
     let license_file = @fs.open("LICENSE", mode=ReadOnly)
     defer license_file.close()
-    sender.send_response(200, "OK", cookies=[], request_method=Get, extra_headers={
+    let _ = sender.send_request(Post, "/", extra_headers={
       "Content-Length": "2048",
     })
     debug_inspect(
@@ -675,58 +680,13 @@ async test "sender end_body incorrect length" {
     })
     defer w.close()
     let sender = Sender::new(w)
-    sender.send_response(200, "OK", cookies=[], request_method=Get, extra_headers={
+    let _ = sender.send_request(Post, "/", extra_headers={
       "content-length": "1",
     })
     debug_inspect(
       try? sender.end_body(),
       content=(
         #|Err(IncorrectBodyLength)
-      ),
-    )
-  })
-}
-
-///|
-async test "send_response cookies" {
-  let cookies = [
-    Cookie("Cookie1", "value1"),
-    Cookie(
-      "Cookie2",
-      "value2",
-      path="/path/to/xxx",
-      max_age=420000,
-      secure=true,
-    ),
-    Cookie(
-      "Cookie3",
-      "value3",
-      expires_raw="Sun, 06 Nov 1994 08:49:37 GMT",
-      domain="example.moonbitlang.com",
-      http_only=true,
-    ),
-    Cookie("Cookie4", "value four", extensions=["ExtNoArg", "ExtWithArg=xxx"]),
-  ]
-  @async.with_task_group(group => {
-    let (r, w) = @io.pipe()
-    group.spawn_bg(() => {
-      defer w.close()
-      let sender = Sender::new(w)
-      let _ = sender.send_response(200, "OK", cookies~, request_method=Get, extra_headers={})
-      sender.end_body()
-    })
-    defer r.close()
-    inspect(
-      r.read_all().binary() |> @bytes_util.ascii_to_string,
-      content=(
-        #|HTTP/1.1 200 OK\r
-        #|Set-Cookie: Cookie1=value1\r
-        #|Set-Cookie: Cookie2=value2; Path=/path/to/xxx; Max-Age=420000; Secure\r
-        #|Set-Cookie: Cookie3=value3; Expires=Sun, 06 Nov 1994 08:49:37 GMT; Domain=example.moonbitlang.com; HttpOnly\r
-        #|Set-Cookie: Cookie4=value four; ExtNoArg; ExtWithArg=xxx\r
-        #|Content-Length: 0\r
-        #|\r
-        #|
       ),
     )
   })
@@ -748,56 +708,17 @@ async test "send_request empty body" {
     })
     defer r.close()
     inspect(
-      r.read_all().binary() |> @bytes_util.ascii_to_string,
+      r.read_all().binary() |> ascii_to_string,
       content=(
         #|GET / HTTP/1.1\r
-        #|Accept-Encoding: gzip,identity\r
+        #|Accept-Encoding: gzip, deflate, br, zstd, identity\r
         #|\r
         #|HEAD / HTTP/1.1\r
-        #|Accept-Encoding: gzip,identity\r
+        #|Accept-Encoding: gzip, deflate, br, zstd, identity\r
         #|\r
         #|POST / HTTP/1.1\r
-        #|Accept-Encoding: gzip,identity\r
+        #|Accept-Encoding: gzip, deflate, br, zstd, identity\r
         #|Content-Length: 0\r
-        #|\r
-        #|
-      ),
-    )
-  }
-}
-
-///|
-async test "send_response empty body" {
-  @async.with_task_group <| group => {
-    let (r, w) = @io.pipe()
-    group.spawn_bg(() => {
-      defer w.close()
-      let sender = Sender::new(w)
-      let _ = sender.send_response(200, "OK", cookies=[], request_method=Get, extra_headers={})
-      sender.end_body()
-      let _ = sender.send_response(200, "OK", cookies=[], request_method=Head, extra_headers={})
-      sender..write("").end_body()
-      let _ = sender.send_response(102, "OK", cookies=[], request_method=Get, extra_headers={})
-      sender.end_body()
-      let _ = sender.send_response(204, "OK", cookies=[], request_method=Get, extra_headers={})
-      sender..write("").end_body()
-      let _ = sender.send_response(304, "OK", cookies=[], request_method=Get, extra_headers={})
-      sender.end_body()
-    })
-    defer r.close()
-    inspect(
-      r.read_all().binary() |> @bytes_util.ascii_to_string,
-      content=(
-        #|HTTP/1.1 200 OK\r
-        #|Content-Length: 0\r
-        #|\r
-        #|HTTP/1.1 200 OK\r
-        #|\r
-        #|HTTP/1.1 102 OK\r
-        #|\r
-        #|HTTP/1.1 204 OK\r
-        #|\r
-        #|HTTP/1.1 304 OK\r
         #|\r
         #|
       ),

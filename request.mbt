@@ -1,16 +1,3 @@
-// Copyright 2025 International Digital Economy Academy
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 ///|
 pub(all) enum Protocol {
@@ -38,18 +25,19 @@ fn resolve_url(uri : String) -> (Protocol, Int, String, String) raise {
   let protocol = match uri[:protocol_len] {
     "http" => Http
     "https" => Https
-    protocol => raise UnsupportedProtocol(protocol.to_string())
+    protocol => raise UnsupportedProtocol(protocol.to_owned())
   }
   let uri = uri[protocol_len + 3:]
   let (host, path) = if uri.find("/") is Some(i) {
-    (uri[:i].to_string(), uri[i:].to_string())
+    (uri[:i].to_owned(), uri[i:].to_owned())
   } else {
-    (uri.to_string(), "/")
+    (uri.to_owned(), "/")
   }
-  let (host, port) = if host lexmatch? (host, ":" ("[0-9]+" as port_str)) {
+  let (host, port) = if host.find(":") is Some(port_start) {
+    let port_str = host[port_start + 1:]
     let port = @string.parse_int(port_str) catch { _ => raise InvalidFormat }
     guard port is (1..<65536) else { raise InvalidFormat }
-    (host.to_string(), port)
+    (host[:port_start].to_owned(), port)
   } else {
     (host, protocol.default_port())
   }

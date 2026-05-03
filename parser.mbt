@@ -1,16 +1,3 @@
-// Copyright 2025 International Digital Economy Academy
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 ///|
 #cfg(target="native")
@@ -34,6 +21,7 @@ priv enum ContentDecoder {
 
 ///|
 #cfg(target="native")
+#warnings("-alert_internal")
 priv struct Reader {
   /// A HTTP reader type that can parse and deliver HTTP request/response
   mut body : BodyKind
@@ -45,6 +33,7 @@ priv struct Reader {
 
 ///|
 #cfg(target="native")
+#warnings("-alert_internal")
 /// Create a new HTTP reader wrapping around existing reader `transport`.
 /// The HTTP reader will read data from `transport`.
 fn[R : @io.Reader] Reader::new(transport : R) -> Reader {
@@ -251,6 +240,7 @@ impl @io.Reader for Reader with _direct_read(self, buf, offset~, max_len~) {
 
 ///|
 #cfg(target="native")
+#warnings("-alert_internal")
 impl @io.Reader for Reader with _get_internal_buffer(self) {
   if self.body is PassThrough || self.body is WaitConnectionClose {
     self.transport._get_internal_buffer()
@@ -275,14 +265,14 @@ async fn Reader::read_headers(
       break
     }
     guard header_line.find(":") is Some(colon_index) else { raise BadRequest }
-    let key = header_line[:colon_index].to_lower().to_string()
+    let key = header_line[:colon_index].to_lower().to_owned()
     guard colon_index + 1 < header_line.length() else { raise BadRequest }
     let value_start = if header_line.code_unit_at(colon_index + 1) == ' ' {
       colon_index + 2
     } else {
       colon_index + 1
     }
-    let value = header_line[value_start:].to_string()
+    let value = header_line[value_start:].to_owned()
     match key {
       "content-length" => {
         guard !(self.body is Fixed(_)) else { raise BadRequest }
@@ -389,14 +379,14 @@ async fn Reader::read_response(
   guard response_line.find(" ") is Some(protocol_len) else { raise BadRequest }
   match response_line[:protocol_len] {
     "HTTP/1.1" | "HTTP/1.0" => ()
-    protocol => raise HttpVersionNotSupported(protocol.to_string())
+    protocol => raise HttpVersionNotSupported(protocol.to_owned())
   }
   let response_line = response_line[protocol_len + 1:]
   guard response_line.find(" ") is Some(code_len) else { raise BadRequest }
   let code = @string.parse_int(response_line[:code_len], base=10) catch {
     _ => raise BadRequest
   }
-  let reason = response_line[code_len + 1:].to_string()
+  let reason = response_line[code_len + 1:].to_owned()
   let (headers, cookies) = self.read_headers()
 
   // HTTP/1.1 Spec (RFC 7230 Section 3.3.3): Message Body Length Determination
@@ -423,12 +413,7 @@ async fn Reader::skip_body(self : Reader) -> Unit {
 
 ///|
 #cfg(target="native")
-fn @io.ReaderBuffer::get_repr(self : Self) -> @io_buffer.Buffer = "%identity"
-
-///|
-#cfg(target="native")
 async fn Reader::enter_passthrough_mode(self : Reader) -> Unit {
   self.skip_body()
-  self.read_buf.get_repr().clear()
   self.body = PassThrough
 }

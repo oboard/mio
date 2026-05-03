@@ -1,16 +1,3 @@
-// Copyright 2025 International Digital Economy Academy
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 ///|
 pub(all) enum RequestMethod {
@@ -69,16 +56,29 @@ pub struct Cookie {
   secure : Bool
   http_only : Bool
   extensions : Array[String]
-
-  fn new(
-    name : String,
-    value : String,
-    path? : String,
-    expires_raw? : String,
-    max_age? : Int64,
-    domain? : String,
-    secure? : Bool,
-    http_only? : Bool,
-    extensions? : Array[String],
-  ) -> Cookie
 } derive(Debug, ToJson)
+
+///|
+pub fn Cookie::Cookie(
+  name : String,
+  value : String,
+  path? : String,
+  expires_raw? : String,
+  max_age? : Int64,
+  domain? : String,
+  secure? : Bool = false,
+  http_only? : Bool = false,
+  extensions? : Array[String] = [],
+) -> Cookie {
+  Cookie::new(
+    name,
+    value,
+    path?,
+    expires_raw?,
+    max_age?,
+    domain?,
+    secure~,
+    http_only~,
+    extensions~,
+  )
+}

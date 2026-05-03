@@ -1,16 +1,3 @@
-// Copyright 2025 International Digital Economy Academy
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
 
 ///|
 pub fn Cookie::new(
@@ -41,12 +28,12 @@ pub fn Cookie::new(
 #cfg(target="native")
 fn Cookie::parse(line : StringView) -> Cookie raise {
   guard line.find("=") is Some(name_end) else { raise BadRequest }
-  let name = line[:name_end].to_string()
+  let name = line[:name_end].to_owned()
   guard line[name_end + 1:].find(";") is Some(value_end) else {
-    Cookie(name, line[name_end + 1:].to_string())
+    Cookie(name, line[name_end + 1:].to_owned())
   }
   let value_end = name_end + 1 + value_end
-  let value = line[name_end + 1:value_end].to_string()
+  let value = line[name_end + 1:value_end].to_owned()
 
   let mut path = None
   let mut expires_raw = None
@@ -67,20 +54,20 @@ fn Cookie::parse(line : StringView) -> Cookie raise {
       let name = attr[:attr_name_end]
       let value = attr[attr_name_end + 1:]
       match name.to_lower() {
-        "path" => path = Some(value.to_string())
-        "expires" => expires_raw = Some(value.to_string())
+        "path" => path = Some(value.to_owned())
+        "expires" => expires_raw = Some(value.to_owned())
         "max-age" => {
           let value = @string.parse_int64(value) catch { _ => raise BadRequest }
           max_age = Some(value)
         }
-        "domain" => domain = Some(value.to_string())
-        _ => extensions.push(attr.to_string())
+        "domain" => domain = Some(value.to_owned())
+        _ => extensions.push(attr.to_owned())
       }
     } else {
       match attr.to_lower() {
         "secure" => secure = true
         "httponly" => http_only = true
-        _ => extensions.push(attr.to_string())
+        _ => extensions.push(attr.to_owned())
       }
     }
 

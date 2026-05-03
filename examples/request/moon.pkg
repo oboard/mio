@@ -1,4 +1,13 @@
 import {
   "oboard/mio" @mio,
   "moonbitlang/async",
-}
+} for "test"
+
+warnings = "-29"
+
+options(
+  targets: {
+    "mio_test.mbt": [ "native", "js" ],
+    "wasm_unused_imports_test.mbt": [ "wasm" ],
+  },
+)
