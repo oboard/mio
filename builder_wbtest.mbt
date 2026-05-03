@@ -184,3 +184,33 @@ test "aes128 encrypt block matches nist vector" {
     content="69c4e0d86a7b0430d8cdb78070b4c55a",
   )
 }
+
+///|
+#cfg(target="native")
+test "aes128 gcm encrypts empty nist vector" {
+  let key = bytes_from_hex("00000000000000000000000000000000")
+  let iv = bytes_from_hex("000000000000000000000000")
+  let result = aes128_gcm_encrypt(key, iv, b"", b"")
+  inspect(@crypto.bytes_to_hex_string(result.ciphertext), content="")
+  inspect(
+    @crypto.bytes_to_hex_string(result.tag),
+    content="58e2fccefa7e3061367f1d57a4e7455a",
+  )
+}
+
+///|
+#cfg(target="native")
+test "aes128 gcm encrypts one block nist vector" {
+  let key = bytes_from_hex("00000000000000000000000000000000")
+  let iv = bytes_from_hex("000000000000000000000000")
+  let plaintext = bytes_from_hex("00000000000000000000000000000000")
+  let result = aes128_gcm_encrypt(key, iv, plaintext, b"")
+  inspect(
+    @crypto.bytes_to_hex_string(result.ciphertext),
+    content="0388dace60b6a392f328c2b971b2fe78",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(result.tag),
+    content="ab6e47d42cec13bdf53a67b21257bddf",
+  )
+}

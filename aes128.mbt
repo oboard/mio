@@ -3,7 +3,16 @@
 priv suberror Aes128Error {
   AesBadKeyLength
   AesBadBlockLength
+  AesBadNonceLength
 } derive(Debug, ToJson)
+
+///|
+#cfg(target="native")
+#warnings("-unused_field")
+priv struct AesGcmResult {
+  ciphertext : Bytes
+  tag : Bytes
+}
 
 ///|
 #cfg(target="native")
@@ -171,4 +180,135 @@ fn aes128_encrypt_block(key : Bytes, block : Bytes) -> Bytes raise {
     out.write_byte((state[i] & 0xff).to_byte())
   }
   out.contents()
+}
+
+///|
+#cfg(target="native")
+fn aes_u64_be(data : Bytes, offset : Int) -> UInt64 {
+  let mut value = 0UL
+  for i in 0..<8 {
+    value = (value << 8) | data[offset + i].to_uint64()
+  }
+  value
+}
+
+///|
+#cfg(target="native")
+fn aes_block_pair(data : Bytes, offset : Int, len : Int) -> (UInt64, UInt64) {
+  let block = FixedArray::make(16, b'\x00')
+  for i in 0..<len {
+    block[i] = data[offset + i]
+  }
+  let bytes = block.unsafe_reinterpret_as_bytes()
+  (aes_u64_be(bytes, 0), aes_u64_be(bytes, 8))
+}
+
+///|
+#cfg(target="native")
+fn aes_gcm_mul(
+  x_hi : UInt64,
+  x_lo : UInt64,
+  y_hi : UInt64,
+  y_lo : UInt64,
+) -> (UInt64, UInt64) {
+  let mut z_hi = 0UL
+  let mut z_lo = 0UL
+  let mut v_hi = y_hi
+  let mut v_lo = y_lo
+  for i in 0..<128 {
+    let bit = if i < 64 {
+      (x_hi >> (63 - i)) & 1UL
+    } else {
+      (x_lo >> (127 - i)) & 1UL
+    }
+    if bit == 1UL {
+      z_hi = z_hi ^ v_hi
+      z_lo = z_lo ^ v_lo
+    }
+    let lsb = v_lo & 1UL
+    v_lo = (v_lo >> 1) | (v_hi << 63)
+    v_hi = v_hi >> 1
+    if lsb == 1UL {
+      v_hi = v_hi ^ 0xe100000000000000UL
+    }
+  }
+  (z_hi, z_lo)
+}
+
+///|
+#cfg(target="native")
+fn aes_gcm_ghash(h : Bytes, aad : Bytes, ciphertext : Bytes) -> Bytes {
+  let h_hi = aes_u64_be(h, 0)
+  let h_lo = aes_u64_be(h, 8)
+  let mut y_hi = 0UL
+  let mut y_lo = 0UL
+  for offset = 0; offset < aad.length(); offset = offset + 16 {
+    let len = @cmp.minimum(16, aad.length() - offset)
+    let (x_hi, x_lo) = aes_block_pair(aad, offset, len)
+    let r = aes_gcm_mul(y_hi ^ x_hi, y_lo ^ x_lo, h_hi, h_lo)
+    y_hi = r.0
+    y_lo = r.1
+  }
+  for offset = 0; offset < ciphertext.length(); offset = offset + 16 {
+    let len = @cmp.minimum(16, ciphertext.length() - offset)
+    let (x_hi, x_lo) = aes_block_pair(ciphertext, offset, len)
+    let r = aes_gcm_mul(y_hi ^ x_hi, y_lo ^ x_lo, h_hi, h_lo)
+    y_hi = r.0
+    y_lo = r.1
+  }
+  let len_block = @buffer.new()
+  len_block.write_uint64_be(aad.length().to_uint64() * 8UL)
+  len_block.write_uint64_be(ciphertext.length().to_uint64() * 8UL)
+  let len_bytes = len_block.contents()
+  let x_hi = aes_u64_be(len_bytes, 0)
+  let x_lo = aes_u64_be(len_bytes, 8)
+  let r = aes_gcm_mul(y_hi ^ x_hi, y_lo ^ x_lo, h_hi, h_lo)
+  let out = @buffer.new()
+  out.write_uint64_be(r.0)
+  out.write_uint64_be(r.1)
+  out.contents()
+}
+
+///|
+#cfg(target="native")
+fn aes_gcm_counter_block(iv : Bytes, counter : UInt) -> Bytes raise {
+  guard iv.length() == 12 else { raise AesBadNonceLength }
+  let out = @buffer.new()
+  out.write_bytes(iv)
+  out.write_byte(((counter >> 24) & 0xff).to_byte())
+  out.write_byte(((counter >> 16) & 0xff).to_byte())
+  out.write_byte(((counter >> 8) & 0xff).to_byte())
+  out.write_byte((counter & 0xff).to_byte())
+  out.contents()
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn aes128_gcm_encrypt(
+  key : Bytes,
+  iv : Bytes,
+  plaintext : Bytes,
+  aad : Bytes,
+) -> AesGcmResult raise {
+  let h = aes128_encrypt_block(
+    key, b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+  )
+  let ciphertext = @buffer.new()
+  for offset = 0, counter = 2U; offset < plaintext.length(); {
+    let stream = aes128_encrypt_block(key, aes_gcm_counter_block(iv, counter))
+    let len = @cmp.minimum(16, plaintext.length() - offset)
+    for i in 0..<len {
+      ciphertext.write_byte(plaintext[offset + i] ^ stream[i])
+    }
+    continue offset + len, counter + 1U
+  }
+  let ciphertext = ciphertext.contents()
+  let s = aes_gcm_ghash(h, aad, ciphertext)
+  let e = aes128_encrypt_block(key, aes_gcm_counter_block(iv, 1U))
+  let tag = @buffer.new()
+  for i in 0..<16 {
+    tag.write_byte(e[i] ^ s[i])
+  }
+  { ciphertext, tag: tag.contents() }
 }
