@@ -113,3 +113,63 @@ async test "http2 prior knowledge h2c loopback" {
     assert_eq(response.text(), "ok")
   })
 }
+
+///|
+#cfg(target="native")
+test "quic varint round trip" {
+  let out = @buffer.new()
+  quic_write_varint(out, 37)
+  quic_write_varint(out, 15293)
+  quic_write_varint(out, 494878333)
+  let encoded = out.contents()
+  let (a, pos) = quic_read_varint(encoded, 0)
+  let (b, pos) = quic_read_varint(encoded, pos)
+  let (c, _) = quic_read_varint(encoded, pos)
+  inspect((a, b, c), content="(37, 15293, 494878333)")
+}
+
+///|
+#cfg(target="native")
+test "http3 headers round trip through qpack" {
+  let frame = h3_decode_frame(
+    h3_encode_headers([
+      (":method", "GET"),
+      (":scheme", "https"),
+      (":path", "/"),
+      (":authority", "example.com"),
+      ("x-test", "moonbit"),
+    ]),
+  )
+  inspect(
+    h3_decode_headers(frame),
+    content=(
+      #|[(":method", "GET"), (":scheme", "https"), (":path", "/"), (":authority", "example.com"), ("x-test", "moonbit")]
+    ),
+  )
+}
+
+///|
+#cfg(target="native")
+test "quic v1 initial secrets match rfc9001" {
+  let secrets = quic_initial_secrets(bytes_from_hex("8394c8f03e515708"))
+  inspect(
+    @crypto.bytes_to_hex_string(secrets.initial_secret),
+    content="7db5df06e7a69e432496adedb00851923595221596ae2ae9fb8115c1e9ed0a44",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(secrets.client_initial_secret),
+    content="c00cf151ca5be075ed0ebfb5c80323c42d6b7db67881289af4008f1f6c357aea",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(quic_initial_key(secrets.client_initial_secret)),
+    content="1f369613dd76d5467730efcbe3b1a22d",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(quic_initial_iv(secrets.client_initial_secret)),
+    content="fa044b2f42a3fd3b46fb255c",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(quic_initial_hp(secrets.client_initial_secret)),
+    content="9f50449e04a0e810283a1e9933adedd2",
+  )
+}

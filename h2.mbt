@@ -420,14 +420,3 @@ async fn h2_perform_request(
     }
   }
 }
-
-///|
-#cfg(target="native")
-fn h3_perform_request(
-  _uri : String,
-  _meth : RequestMethod,
-  _headers : Map[String, String],
-  _body : &@io.Data,
-) -> ResponseBody raise {
-  raise Http3RequiresQuic
-}
