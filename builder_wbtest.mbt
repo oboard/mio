@@ -302,3 +302,29 @@ test "quic client initial datagram carries crypto frame" {
   }
   inspect(all_padding, content="true")
 }
+
+///|
+#cfg(target="native")
+async test "quic sends client initial datagram over udp" {
+  let dcid = bytes_from_hex("8394c8f03e515708")
+  let scid = bytes_from_hex("f067a5502a4262b5")
+  let server = @socket.UdpServer(@socket.Addr::parse("127.0.0.1:0"))
+  @async.with_task_group(group => {
+    group.spawn_bg(() => {
+      let buf = FixedArray::make(1500, b'\x00')
+      let (n, _) = server.recvfrom(buf)
+      inspect(n >= 1200, content="true")
+      let packet = quic_copy_slice(buf.unsafe_reinterpret_as_bytes(), 0, n)
+      let opened = quic_open_client_initial_packet(packet, dcid)
+      let (crypto_frame, _) = quic_decode_crypto_frame(opened.payload, 0)
+      assert_eq(crypto_frame.data, b"tls-client-hello")
+      server.close()
+    })
+    let _ = quic_send_client_initial(
+      server.addr,
+      dcid,
+      scid,
+      b"tls-client-hello",
+    )
+  })
+}
