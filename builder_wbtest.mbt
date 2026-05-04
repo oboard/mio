@@ -829,3 +829,44 @@ test "quic handshake packet round trips with tls keys" {
   let (frame, _) = quic_decode_crypto_frame(opened.payload, 0)
   assert_eq(frame.data, b"encrypted-extensions")
 }
+
+///|
+#cfg(target="native")
+test "tls13 application keys protect quic short packets" {
+  let shared = bytes_from_hex(
+    "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
+  )
+  let handshake_secrets = tls13_derive_handshake_secrets(
+    shared,
+    tls13_transcript_hash([b"clienthello", b"serverhello"]),
+  )
+  let app_secrets = tls13_derive_application_secrets(
+    handshake_secrets.handshake_secret,
+    tls13_transcript_hash([
+      b"clienthello", b"serverhello", b"encryptedextensions", b"finished",
+    ]),
+  )
+  inspect(app_secrets.master_secret.length(), content="32")
+  let client_keys = tls13_derive_quic_packet_keys(
+    app_secrets.client_application_traffic_secret,
+  )
+  let dcid = bytes_from_hex("9abc0123456789ff")
+  let request_stream = h3_encode_request_stream(
+    [
+      (":method", "GET"),
+      (":scheme", "https"),
+      (":path", "/"),
+      (":authority", "example.com"),
+    ],
+    b"",
+  )
+  let payload = quic_encode_stream_frame(0, 0, true, request_stream)
+  let packet = quic_build_short_packet(dcid, 4, payload, client_keys)
+  let opened = quic_open_short_packet(packet.packet, dcid.length(), client_keys)
+  inspect(opened.packet_number, content="4")
+  assert_eq(opened.destination_connection_id, dcid)
+  let (stream, _) = quic_decode_stream_frame(opened.payload, 0)
+  inspect(stream.stream_id, content="0")
+  let frames = h3_decode_frames(stream.data)
+  inspect(h3_decode_headers(frames[0])[0], content="(\":method\", \"GET\")")
+}

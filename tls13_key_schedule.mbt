@@ -20,6 +20,15 @@ priv struct Tls13TrafficKeys {
 
 ///|
 #cfg(target="native")
+#warnings("-unused_field")
+priv struct Tls13ApplicationSecrets {
+  master_secret : Bytes
+  client_application_traffic_secret : Bytes
+  server_application_traffic_secret : Bytes
+}
+
+///|
+#cfg(target="native")
 fn tls13_sha256(data : Bytes) -> Bytes {
   @crypto.sha256(data).unsafe_reinterpret_as_bytes()
 }
@@ -100,6 +109,30 @@ fn tls13_derive_traffic_keys(secret : Bytes) -> Tls13TrafficKeys raise {
 #warnings("-unused_value")
 fn tls13_derive_quic_packet_keys(secret : Bytes) -> QuicPacketKeys raise {
   quic_packet_keys_from_secret(secret)
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn tls13_derive_application_secrets(
+  handshake_secret : Bytes,
+  transcript_hash : Bytes,
+) -> Tls13ApplicationSecrets raise {
+  let derived_secret = tls13_derive_secret(
+    handshake_secret,
+    "derived",
+    tls13_empty_hash(),
+  )
+  let master_secret = quic_hkdf_extract(derived_secret, tls13_zeros())
+  {
+    master_secret,
+    client_application_traffic_secret: tls13_derive_secret(
+      master_secret, "c ap traffic", transcript_hash,
+    ),
+    server_application_traffic_secret: tls13_derive_secret(
+      master_secret, "s ap traffic", transcript_hash,
+    ),
+  }
 }
 
 ///|
