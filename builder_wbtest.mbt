@@ -508,3 +508,115 @@ test "tls13 parses server hello encrypted extensions and finished" {
   let finished = tls13_parse_finished(finished_message.contents())
   assert_eq(finished.verify_data, Bytes::make(32, b'\x66'))
 }
+
+///|
+#cfg(target="native")
+test "tls13 processes server handshake and verifies finished" {
+  let client_private = bytes_from_hex(
+    "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+  )
+  let server_private = bytes_from_hex(
+    "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb",
+  )
+  let client_public = x25519_base(client_private)
+  let server_public = x25519_base(server_private)
+  let transport_parameters = quic_encode_client_transport_parameters({
+    initial_source_connection_id: bytes_from_hex("f067a5502a4262b5"),
+    max_idle_timeout: 30000,
+    max_udp_payload_size: 1200,
+    initial_max_data: 1048576,
+    initial_max_stream_data_bidi_local: 262144,
+    initial_max_stream_data_bidi_remote: 262144,
+    initial_max_stream_data_uni: 262144,
+    initial_max_streams_bidi: 100,
+    initial_max_streams_uni: 3,
+    active_connection_id_limit: 2,
+  })
+  let client_hello = tls13_encode_client_hello({
+    server_name: "example.com",
+    alpn: "h3",
+    random: Bytes::make(32, b'\x11'),
+    legacy_session_id: Bytes::make(8, b'\x22'),
+    x25519_public_key: client_public,
+    transport_parameters,
+  })
+  let key_share_payload = @buffer.new()
+  tls13_write_u16(key_share_payload, tls13_group_x25519)
+  tls13_write_u16(key_share_payload, server_public.length())
+  key_share_payload.write_bytes(server_public)
+  let sh_extensions = @buffer.new()
+  sh_extensions.write_bytes(
+    tls13_extension(tls13_ext_supported_versions, b"\x03\x04"),
+  )
+  sh_extensions.write_bytes(
+    tls13_extension(tls13_ext_key_share, key_share_payload.contents()),
+  )
+  let sh_body = @buffer.new()
+  tls13_write_u16(sh_body, 0x0303)
+  sh_body.write_bytes(Bytes::make(32, b'\x55'))
+  sh_body.write_byte(b'\x08')
+  sh_body.write_bytes(Bytes::make(8, b'\x22'))
+  tls13_write_u16(sh_body, 0x1301)
+  sh_body.write_byte(b'\x00')
+  tls13_write_u16(sh_body, sh_extensions.length())
+  sh_body.write_bytes(sh_extensions.contents())
+  let server_hello = @buffer.new()
+  server_hello.write_byte(b'\x02')
+  tls13_write_u24(server_hello, sh_body.length())
+  server_hello.write_bytes(sh_body.contents())
+  let server_hello = server_hello.contents()
+
+  let ee_extensions = @buffer.new()
+  ee_extensions.write_bytes(tls13_extension(tls13_ext_alpn, b"\x00\x03\x02h3"))
+  ee_extensions.write_bytes(
+    tls13_extension(tls13_ext_quic_transport_parameters, transport_parameters),
+  )
+  let ee_body = @buffer.new()
+  tls13_write_u16(ee_body, ee_extensions.length())
+  ee_body.write_bytes(ee_extensions.contents())
+  let encrypted_extensions = @buffer.new()
+  encrypted_extensions.write_byte(b'\x08')
+  tls13_write_u24(encrypted_extensions, ee_body.length())
+  encrypted_extensions.write_bytes(ee_body.contents())
+  let encrypted_extensions = encrypted_extensions.contents()
+
+  let shared = x25519(server_private, client_public)
+  let secrets = tls13_derive_handshake_secrets(
+    shared,
+    tls13_transcript_hash([client_hello, server_hello]),
+  )
+  let server_keys = tls13_derive_traffic_keys(
+    secrets.server_handshake_traffic_secret,
+  )
+  let verify_data = tls13_finished_verify_data(
+    server_keys.finished_key,
+    tls13_transcript_hash([client_hello, server_hello, encrypted_extensions]),
+  )
+  let finished = @buffer.new()
+  finished.write_byte(b'\x14')
+  tls13_write_u24(finished, verify_data.length())
+  finished.write_bytes(verify_data)
+  let result = tls13_process_server_handshake(
+    client_private,
+    client_hello,
+    server_hello,
+    encrypted_extensions,
+    finished.contents(),
+  )
+  inspect(result.encrypted_extensions.alpn, content="h3")
+  assert_eq(result.server_handshake_keys.key, server_keys.key)
+  let bad_finished = @buffer.new()
+  bad_finished.write_byte(b'\x14')
+  tls13_write_u24(bad_finished, 32)
+  bad_finished.write_bytes(Bytes::make(32, b'\x00'))
+  assert_true(
+    (try? tls13_process_server_handshake(
+      client_private,
+      client_hello,
+      server_hello,
+      encrypted_extensions,
+      bad_finished.contents(),
+    ))
+    is Err(_),
+  )
+}
