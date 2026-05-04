@@ -438,3 +438,73 @@ test "tls13 key schedule derives handshake traffic keys" {
     content="bc89f311fcefa56402b2e7a196d4e09e2028c7ab33bd20d4692273fdadef9b0f",
   )
 }
+
+///|
+#cfg(target="native")
+test "tls13 parses server hello encrypted extensions and finished" {
+  let server_key = Bytes::make(32, b'\x44')
+  let key_share_payload = @buffer.new()
+  tls13_write_u16(key_share_payload, tls13_group_x25519)
+  tls13_write_u16(key_share_payload, server_key.length())
+  key_share_payload.write_bytes(server_key)
+  let extensions = @buffer.new()
+  extensions.write_bytes(
+    tls13_extension(tls13_ext_supported_versions, b"\x03\x04"),
+  )
+  extensions.write_bytes(
+    tls13_extension(tls13_ext_key_share, key_share_payload.contents()),
+  )
+  let server_body = @buffer.new()
+  tls13_write_u16(server_body, 0x0303)
+  server_body.write_bytes(Bytes::make(32, b'\x55'))
+  server_body.write_byte(b'\x08')
+  server_body.write_bytes(Bytes::make(8, b'\x22'))
+  tls13_write_u16(server_body, 0x1301)
+  server_body.write_byte(b'\x00')
+  tls13_write_u16(server_body, extensions.length())
+  server_body.write_bytes(extensions.contents())
+  let server_message = @buffer.new()
+  server_message.write_byte(b'\x02')
+  tls13_write_u24(server_message, server_body.length())
+  server_message.write_bytes(server_body.contents())
+  let server_hello = tls13_parse_server_hello(server_message.contents())
+  inspect(server_hello.cipher_suite, content="4865")
+  assert_eq(server_hello.x25519_public_key, server_key)
+
+  let transport_parameters = quic_encode_client_transport_parameters({
+    initial_source_connection_id: bytes_from_hex("f067a5502a4262b5"),
+    max_idle_timeout: 30000,
+    max_udp_payload_size: 1200,
+    initial_max_data: 1048576,
+    initial_max_stream_data_bidi_local: 262144,
+    initial_max_stream_data_bidi_remote: 262144,
+    initial_max_stream_data_uni: 262144,
+    initial_max_streams_bidi: 100,
+    initial_max_streams_uni: 3,
+    active_connection_id_limit: 2,
+  })
+  let ee_extensions = @buffer.new()
+  ee_extensions.write_bytes(tls13_extension(tls13_ext_alpn, b"\x00\x03\x02h3"))
+  ee_extensions.write_bytes(
+    tls13_extension(tls13_ext_quic_transport_parameters, transport_parameters),
+  )
+  let ee_body = @buffer.new()
+  tls13_write_u16(ee_body, ee_extensions.length())
+  ee_body.write_bytes(ee_extensions.contents())
+  let ee_message = @buffer.new()
+  ee_message.write_byte(b'\x08')
+  tls13_write_u24(ee_message, ee_body.length())
+  ee_message.write_bytes(ee_body.contents())
+  let encrypted_extensions = tls13_parse_encrypted_extensions(
+    ee_message.contents(),
+  )
+  inspect(encrypted_extensions.alpn, content="h3")
+  assert_eq(encrypted_extensions.transport_parameters, transport_parameters)
+
+  let finished_message = @buffer.new()
+  finished_message.write_byte(b'\x14')
+  tls13_write_u24(finished_message, 32)
+  finished_message.write_bytes(Bytes::make(32, b'\x66'))
+  let finished = tls13_parse_finished(finished_message.contents())
+  assert_eq(finished.verify_data, Bytes::make(32, b'\x66'))
+}

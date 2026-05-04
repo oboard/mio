@@ -58,6 +58,7 @@ options(
     "send.mbt": [ "native" ],
     "send_wbtest.mbt": [ "native" ],
     "tls13_client_hello.mbt": [ "native" ],
+    "tls13_handshake_parser.mbt": [ "native" ],
     "tls13_key_schedule.mbt": [ "native" ],
     "types.mbt": [ "native", "js" ],
     "utils.mbt": [ "native" ],
