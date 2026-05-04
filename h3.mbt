@@ -30,6 +30,15 @@ priv struct H3Frame {
 
 ///|
 #cfg(target="native")
+#warnings("-unused_field")
+priv struct H3DecodedResponse {
+  status : Int
+  headers : Array[(String, String)]
+  body : Bytes
+}
+
+///|
+#cfg(target="native")
 fn h3_encode_frame(frame_type : Int, payload : Bytes) -> Bytes raise {
   let out = @buffer.new()
   quic_write_varint(out, frame_type)
@@ -144,6 +153,51 @@ fn h3_encode_request_stream(
     out.write_bytes(h3_encode_data(body))
   }
   out.contents()
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn h3_decode_response_stream(stream_data : Bytes) -> H3DecodedResponse raise {
+  let frames = h3_decode_frames(stream_data)
+  let mut status = -1
+  let mut headers = []
+  let body = @buffer.new()
+  for frame in frames {
+    if frame.frame_type == h3_frame_headers {
+      headers = h3_decode_headers(frame)
+      for header in headers {
+        if header.0 == ":status" {
+          status = @string.parse_int(header.1, base=10) catch { _ => -1 }
+        }
+      }
+    } else if frame.frame_type == h3_frame_data {
+      body.write_bytes(frame.payload)
+    } else {
+      raise Http3FrameUnsupported
+    }
+  }
+  guard status >= 0 else { raise Http3FrameUnsupported }
+  { status, headers, body: body.contents() }
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_decode_h3_response_packets(
+  packets : Array[Bytes],
+  destination_connection_id_length : Int,
+  keys : QuicPacketKeys,
+  stream_id? : Int = 0,
+) -> H3DecodedResponse raise {
+  let stream_data = @buffer.new()
+  for packet in packets {
+    let opened = quic_open_short_packet(
+      packet, destination_connection_id_length, keys,
+    )
+    stream_data.write_bytes(quic_collect_stream_data(opened.payload, stream_id))
+  }
+  h3_decode_response_stream(stream_data.contents())
 }
 
 ///|

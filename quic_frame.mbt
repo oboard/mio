@@ -224,3 +224,31 @@ fn quic_collect_crypto_data(payload : Bytes) -> Bytes raise {
   }
   out.contents()
 }
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_collect_stream_data(payload : Bytes, stream_id : Int) -> Bytes raise {
+  let out = @buffer.new()
+  for offset = 0; offset < payload.length(); {
+    let (frame_type, _) = quic_read_varint(payload, offset)
+    if frame_type == quic_frame_padding {
+      continue offset + 1
+    } else if frame_type == quic_frame_ping {
+      continue offset + 1
+    } else if frame_type == quic_frame_ack {
+      let (_, next) = quic_decode_ack(payload, offset)
+      continue next
+    } else if (frame_type & 0xf8) == quic_frame_stream_base {
+      let (frame, next) = quic_decode_stream_frame(payload, offset)
+      if frame.stream_id == stream_id {
+        guard frame.offset == out.length() else { raise QuicCryptoOutOfOrder }
+        out.write_bytes(frame.data)
+      }
+      continue next
+    } else {
+      raise QuicFrameUnsupported
+    }
+  }
+  out.contents()
+}

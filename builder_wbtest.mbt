@@ -870,3 +870,42 @@ test "tls13 application keys protect quic short packets" {
   let frames = h3_decode_frames(stream.data)
   inspect(h3_decode_headers(frames[0])[0], content="(\":method\", \"GET\")")
 }
+
+///|
+#cfg(target="native")
+test "quic decodes h3 response from app packets" {
+  let shared = bytes_from_hex(
+    "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
+  )
+  let handshake_secrets = tls13_derive_handshake_secrets(
+    shared,
+    tls13_transcript_hash([b"clienthello", b"serverhello"]),
+  )
+  let app_secrets = tls13_derive_application_secrets(
+    handshake_secrets.handshake_secret,
+    tls13_transcript_hash([b"clienthello", b"serverhello", b"finished"]),
+  )
+  let server_keys = tls13_derive_quic_packet_keys(
+    app_secrets.server_application_traffic_secret,
+  )
+  let dcid = bytes_from_hex("f067a5502a4262b5")
+  let response_stream = @buffer.new()
+  response_stream.write_bytes(
+    h3_encode_headers([(":status", "200"), ("content-type", "text/plain")]),
+  )
+  response_stream.write_bytes(h3_encode_data(b"ok"))
+  let payload = @buffer.new()
+  payload.write_bytes(quic_encode_ack(4, 0, 0))
+  payload.write_bytes(
+    quic_encode_stream_frame(0, 0, true, response_stream.contents()),
+  )
+  let packet = quic_build_short_packet(dcid, 9, payload.contents(), server_keys)
+  let response = quic_decode_h3_response_packets(
+    [packet.packet],
+    dcid.length(),
+    server_keys,
+  )
+  inspect(response.status, content="200")
+  inspect(response.headers[1], content="(\"content-type\", \"text/plain\")")
+  inspect(@utf8.decode_lossy(response.body), content="ok")
+}
