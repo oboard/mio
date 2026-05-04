@@ -683,3 +683,29 @@ test "tls13 processes server handshake and verifies finished" {
     is Err(_),
   )
 }
+
+///|
+#cfg(target="native")
+test "quic handshake packet round trips with tls keys" {
+  let shared = bytes_from_hex(
+    "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
+  )
+  let secrets = tls13_derive_handshake_secrets(
+    shared,
+    tls13_transcript_hash([b"clienthello", b"serverhello"]),
+  )
+  let server_keys = tls13_derive_quic_packet_keys(
+    secrets.server_handshake_traffic_secret,
+  )
+  let dcid = bytes_from_hex("f067a5502a4262b5")
+  let scid = bytes_from_hex("9abc0123456789ff")
+  let payload = quic_encode_crypto_frame(0, b"encrypted-extensions")
+  let packet = quic_build_handshake_packet(dcid, scid, 3, payload, server_keys)
+  let opened = quic_open_handshake_packet(packet.packet, server_keys)
+  inspect(opened.packet_type, content="2")
+  inspect(opened.packet_number, content="3")
+  assert_eq(opened.destination_connection_id, dcid)
+  assert_eq(opened.source_connection_id, scid)
+  let (frame, _) = quic_decode_crypto_frame(opened.payload, 0)
+  assert_eq(frame.data, b"encrypted-extensions")
+}

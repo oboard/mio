@@ -29,6 +29,17 @@ priv struct QuicInitialPacket {
 
 ///|
 #cfg(target="native")
+#warnings("-unused_field")
+priv struct QuicLongProtectedPacket {
+  packet_type : Int
+  destination_connection_id : Bytes
+  source_connection_id : Bytes
+  packet_number : Int
+  payload : Bytes
+}
+
+///|
+#cfg(target="native")
 fn quic_copy_slice(data : Bytes, start : Int, end : Int) -> Bytes {
   let out = @buffer.new()
   out.write_bytes(data[start:end])
@@ -116,6 +127,31 @@ fn quic_build_initial_header(
   out.write_bytes(source_connection_id)
   quic_write_varint(out, token.length())
   out.write_bytes(token)
+  quic_write_varint(out, packet_number_length + protected_payload_length)
+  let packet_number_offset = out.length()
+  quic_write_packet_number(out, packet_number, packet_number_length)
+  (out.contents(), packet_number_offset, packet_number_length)
+}
+
+///|
+#cfg(target="native")
+fn quic_build_handshake_header(
+  destination_connection_id : Bytes,
+  source_connection_id : Bytes,
+  packet_number : Int,
+  protected_payload_length : Int,
+) -> (Bytes, Int, Int) raise {
+  let packet_number_length = quic_packet_number_len(packet_number)
+  let out = @buffer.new()
+  out.write_byte((0xe0 | ((packet_number_length - 1) & 0x03)).to_byte())
+  out.write_byte(b'\x00')
+  out.write_byte(b'\x00')
+  out.write_byte(b'\x00')
+  out.write_byte(b'\x01')
+  out.write_byte(destination_connection_id.length().to_byte())
+  out.write_bytes(destination_connection_id)
+  out.write_byte(source_connection_id.length().to_byte())
+  out.write_bytes(source_connection_id)
   quic_write_varint(out, packet_number_length + protected_payload_length)
   let packet_number_offset = out.length()
   quic_write_packet_number(out, packet_number, packet_number_length)
@@ -233,6 +269,55 @@ fn quic_build_initial_packet(
 
 ///|
 #cfg(target="native")
+fn quic_protect_long_packet(
+  header : Bytes,
+  packet_number_offset : Int,
+  packet_number_length : Int,
+  packet_number : Int,
+  payload : Bytes,
+  keys : QuicPacketKeys,
+) -> QuicProtectedPacket raise {
+  let nonce = quic_initial_nonce(keys.iv, packet_number)
+  let result = aes128_gcm_encrypt(keys.key, nonce, payload, header)
+  let unprotected = @buffer.new()
+  unprotected.write_bytes(header)
+  unprotected.write_bytes(result.ciphertext)
+  unprotected.write_bytes(result.tag)
+  let packet = quic_apply_initial_header_protection(
+    unprotected.contents(),
+    keys.hp,
+    packet_number_offset,
+    packet_number_length,
+  )
+  {
+    packet,
+    header_length: header.length(),
+    packet_number_offset,
+    packet_number_length,
+  }
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_build_handshake_packet(
+  destination_connection_id : Bytes,
+  source_connection_id : Bytes,
+  packet_number : Int,
+  payload : Bytes,
+  keys : QuicPacketKeys,
+) -> QuicProtectedPacket raise {
+  let protected_payload_length = payload.length() + 16
+  let (header, packet_number_offset, packet_number_length) = quic_build_handshake_header(
+    destination_connection_id, source_connection_id, packet_number, protected_payload_length,
+  )
+  quic_protect_long_packet(
+    header, packet_number_offset, packet_number_length, packet_number, payload, keys,
+  )
+}
+
+///|
+#cfg(target="native")
 #warnings("-unused_value")
 fn quic_build_server_initial_packet(
   original_destination_connection_id : Bytes,
@@ -294,6 +379,18 @@ fn quic_initial_packet_number_offset(packet : Bytes) -> (Int, Int, Int) raise {
     packet, length_offset,
   )
   (payload_length, packet_number_offset, token_start)
+}
+
+///|
+#cfg(target="native")
+fn quic_handshake_packet_number_offset(packet : Bytes) -> (Int, Int) raise {
+  let long_header = quic_parse_long_header(packet)
+  guard long_header.packet_type == 2 else { raise QuicPacketTooShort }
+  let (payload_length, packet_number_offset) = quic_read_varint(
+    packet,
+    long_header.payload_offset,
+  )
+  (payload_length, packet_number_offset)
 }
 
 ///|
@@ -385,6 +482,61 @@ fn quic_open_initial_packet(
     destination_connection_id: long_header.destination_connection_id,
     source_connection_id: long_header.source_connection_id,
     token: token.contents(),
+    packet_number,
+    payload: plaintext,
+  }
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_open_handshake_packet(
+  packet : Bytes,
+  keys : QuicPacketKeys,
+) -> QuicLongProtectedPacket raise {
+  let (_, packet_number_offset) = quic_handshake_packet_number_offset(packet)
+  let (unprotected, packet_number_length) = quic_remove_initial_header_protection(
+    packet,
+    keys.hp,
+    packet_number_offset,
+  )
+  let long_header = quic_parse_long_header(unprotected)
+  let (payload_length, packet_number_offset) = quic_read_varint(
+    unprotected,
+    long_header.payload_offset,
+  )
+  let packet_number = quic_read_packet_number(
+    unprotected, packet_number_offset, packet_number_length,
+  )
+  let encrypted_offset = packet_number_offset + packet_number_length
+  let encrypted_length = payload_length - packet_number_length
+  guard encrypted_length >= 16 else { raise QuicProtectedPayloadTooShort }
+  guard encrypted_offset + encrypted_length <= unprotected.length() else {
+    raise QuicPacketTooShort
+  }
+  let ciphertext_length = encrypted_length - 16
+  let ciphertext = quic_copy_slice(
+    unprotected,
+    encrypted_offset,
+    encrypted_offset + ciphertext_length,
+  )
+  let tag = quic_copy_slice(
+    unprotected,
+    encrypted_offset + ciphertext_length,
+    encrypted_offset + encrypted_length,
+  )
+  let nonce = quic_initial_nonce(keys.iv, packet_number)
+  let plaintext = aes128_gcm_decrypt(
+    keys.key,
+    nonce,
+    ciphertext,
+    quic_copy_slice(unprotected, 0, encrypted_offset),
+    tag,
+  )
+  {
+    packet_type: long_header.packet_type,
+    destination_connection_id: long_header.destination_connection_id,
+    source_connection_id: long_header.source_connection_id,
     packet_number,
     payload: plaintext,
   }
