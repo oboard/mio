@@ -596,6 +596,14 @@ test "tls13 parses certificate and certificate verify" {
   let cv = tls13_parse_certificate_verify(cv_message.contents())
   inspect(cv.signature_scheme, content="2052")
   inspect(@utf8.decode_lossy(cv.signature), content="sigval")
+  let input = tls13_certificate_verify_input(
+    "TLS 1.3, server CertificateVerify",
+    tls13_sha256(b"transcript"),
+  )
+  inspect(input.length(), content="130")
+  inspect(input[0], content="b'\\x20'")
+  inspect(input[64], content="b'\\x54'")
+  inspect(input[97], content="b'\\x00'")
 }
 
 ///|

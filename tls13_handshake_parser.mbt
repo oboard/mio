@@ -330,6 +330,23 @@ fn tls13_parse_certificate_verify(
 ///|
 #cfg(target="native")
 #warnings("-unused_value")
+fn tls13_certificate_verify_input(
+  context : String,
+  transcript_hash : Bytes,
+) -> Bytes {
+  let out = @buffer.new()
+  for _ in 0..<64 {
+    out.write_byte(b'\x20')
+  }
+  out.write_bytes(@utf8.encode(context))
+  out.write_byte(b'\x00')
+  out.write_bytes(transcript_hash)
+  out.contents()
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
 fn tls13_parse_finished(message : Bytes) -> Tls13Finished raise {
   let body = tls13_handshake_body(message, tls13_handshake_finished)
   { verify_data: body }
