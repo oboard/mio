@@ -10,6 +10,8 @@ priv suberror Tls13HandshakeStateError {
 priv struct Tls13ServerHandshakeResult {
   server_hello : Tls13ServerHello
   encrypted_extensions : Tls13EncryptedExtensions
+  certificate : Tls13Certificate?
+  certificate_verify : Tls13CertificateVerify?
   handshake_secrets : Tls13HandshakeSecrets
   server_handshake_keys : Tls13TrafficKeys
 }
@@ -20,6 +22,8 @@ priv struct Tls13ServerHandshakeResult {
 priv struct QuicTlsServerHandshakeResult {
   server_hello : Tls13ServerHello
   encrypted_extensions : Tls13EncryptedExtensions
+  certificate : Tls13Certificate?
+  certificate_verify : Tls13CertificateVerify?
   handshake_secrets : Tls13HandshakeSecrets
   server_handshake_keys : Tls13TrafficKeys
   server_quic_handshake_keys : QuicPacketKeys
@@ -66,11 +70,20 @@ fn tls13_process_server_handshake(
   let encrypted_extensions = tls13_parse_encrypted_extensions(
     encrypted_extensions_message,
   )
+  let mut certificate = None
+  let mut certificate_verify = None
   let before_finished = @buffer.new()
   before_finished.write_bytes(client_hello)
   before_finished.write_bytes(server_hello_message)
   before_finished.write_bytes(encrypted_extensions_message)
   for message in extra_messages_before_finished {
+    if message.length() > 0 &&
+      message[0].to_int() == tls13_handshake_certificate {
+      certificate = Some(tls13_parse_certificate(message))
+    } else if message.length() > 0 &&
+      message[0].to_int() == tls13_handshake_certificate_verify {
+      certificate_verify = Some(tls13_parse_certificate_verify(message))
+    }
     before_finished.write_bytes(message)
   }
   let finished_transcript = tls13_sha256(before_finished.contents())
@@ -85,6 +98,8 @@ fn tls13_process_server_handshake(
   {
     server_hello,
     encrypted_extensions,
+    certificate,
+    certificate_verify,
     handshake_secrets,
     server_handshake_keys,
   }
@@ -152,6 +167,8 @@ fn quic_process_tls13_server_handshake(
   {
     server_hello: verified.server_hello,
     encrypted_extensions: verified.encrypted_extensions,
+    certificate: verified.certificate,
+    certificate_verify: verified.certificate_verify,
     handshake_secrets: verified.handshake_secrets,
     server_handshake_keys: verified.server_handshake_keys,
     server_quic_handshake_keys,
