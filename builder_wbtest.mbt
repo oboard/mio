@@ -331,6 +331,42 @@ async test "quic sends client initial datagram over udp" {
 
 ///|
 #cfg(target="native")
+async test "quic sends tls13 client hello in initial datagram" {
+  let dcid = bytes_from_hex("8394c8f03e515708")
+  let scid = bytes_from_hex("f067a5502a4262b5")
+  let client_private = bytes_from_hex(
+    "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+  )
+  let server = @socket.UdpServer(@socket.Addr::parse("127.0.0.1:0"))
+  @async.with_task_group(group => {
+    group.spawn_bg(() => {
+      let buf = FixedArray::make(1500, b'\x00')
+      let (n, _) = server.recvfrom(buf)
+      let packet = quic_copy_slice(buf.unsafe_reinterpret_as_bytes(), 0, n)
+      let opened = quic_open_client_initial_packet(packet, dcid)
+      let (crypto_frame, _) = quic_decode_crypto_frame(opened.payload, 0)
+      inspect(crypto_frame.data[0].to_int(), content="1")
+      assert_true(crypto_frame.data.length() > 140)
+      server.close()
+    })
+    let sent = quic_send_tls13_client_initial(
+      server.addr,
+      "example.com",
+      dcid,
+      scid,
+      client_private,
+      Bytes::make(32, b'\x11'),
+      Bytes::make(8, b'\x22'),
+    )
+    inspect(
+      @crypto.bytes_to_hex_string(sent.client_public_key),
+      content="8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
+    )
+  })
+}
+
+///|
+#cfg(target="native")
 test "tls13 client hello encodes h3 quic extensions" {
   let transport_parameters = quic_encode_client_transport_parameters({
     initial_source_connection_id: bytes_from_hex("f067a5502a4262b5"),
