@@ -61,5 +61,6 @@ options(
     "types.mbt": [ "native", "js" ],
     "utils.mbt": [ "native" ],
     "wasm_unused_imports.mbt": [ "wasm" ],
+    "x25519.mbt": [ "native" ],
   },
 )

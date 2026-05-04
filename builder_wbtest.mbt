@@ -363,3 +363,31 @@ test "tls13 client hello encodes h3 quic extensions" {
     content="f067a5502a4262b5",
   )
 }
+
+///|
+#cfg(target="native")
+test "x25519 derives rfc7748 public keys and shared secret" {
+  let alice_private = bytes_from_hex(
+    "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+  )
+  let bob_private = bytes_from_hex(
+    "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb",
+  )
+  let alice_public = x25519_base(alice_private)
+  let bob_public = x25519_base(bob_private)
+  inspect(
+    @crypto.bytes_to_hex_string(alice_public),
+    content="8520f0098930a754748b7ddcb43ef75a0dbf3a0d26381af4eba4a98eaa9b4e6a",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(bob_public),
+    content="de9edb7d7b7dc1b4d35b61c2ece435373f8343c85b78674dadfc7e146f882b4f",
+  )
+  let alice_shared = x25519(alice_private, bob_public)
+  let bob_shared = x25519(bob_private, alice_public)
+  inspect(
+    @crypto.bytes_to_hex_string(alice_shared),
+    content="4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
+  )
+  assert_eq(alice_shared, bob_shared)
+}
