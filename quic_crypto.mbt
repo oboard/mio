@@ -16,6 +16,22 @@ priv struct QuicInitialSecrets {
 
 ///|
 #cfg(target="native")
+priv enum QuicInitialSecretSide {
+  QuicClientInitial
+  QuicServerInitial
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_field")
+priv struct QuicPacketKeys {
+  key : Bytes
+  iv : Bytes
+  hp : Bytes
+}
+
+///|
+#cfg(target="native")
 fn hex_value(c : UInt16) -> Int raise {
   if c >= '0' && c <= '9' {
     c.to_int() - '0'.to_int()
@@ -128,4 +144,29 @@ fn quic_initial_iv(secret : Bytes) -> Bytes raise {
 #warnings("-unused_value")
 fn quic_initial_hp(secret : Bytes) -> Bytes raise {
   quic_hkdf_expand_label(secret, "quic hp", b"", 16)
+}
+
+///|
+#cfg(target="native")
+fn quic_packet_keys_from_secret(secret : Bytes) -> QuicPacketKeys raise {
+  {
+    key: quic_initial_key(secret),
+    iv: quic_initial_iv(secret),
+    hp: quic_initial_hp(secret),
+  }
+}
+
+///|
+#cfg(target="native")
+fn quic_initial_packet_keys(
+  original_destination_connection_id : Bytes,
+  side : QuicInitialSecretSide,
+) -> QuicPacketKeys raise {
+  let secrets = quic_initial_secrets(original_destination_connection_id)
+  match side {
+    QuicClientInitial =>
+      quic_packet_keys_from_secret(secrets.client_initial_secret)
+    QuicServerInitial =>
+      quic_packet_keys_from_secret(secrets.server_initial_secret)
+  }
 }

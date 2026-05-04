@@ -98,6 +98,13 @@ fn tls13_derive_traffic_keys(secret : Bytes) -> Tls13TrafficKeys raise {
 ///|
 #cfg(target="native")
 #warnings("-unused_value")
+fn tls13_derive_quic_packet_keys(secret : Bytes) -> QuicPacketKeys raise {
+  quic_packet_keys_from_secret(secret)
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
 fn tls13_finished_verify_data(
   finished_key : Bytes,
   transcript_hash : Bytes,

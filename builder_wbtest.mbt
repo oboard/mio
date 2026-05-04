@@ -257,6 +257,27 @@ test "quic client initial packet opens after protection" {
 
 ///|
 #cfg(target="native")
+test "quic server initial packet opens with server keys" {
+  let original_dcid = bytes_from_hex("8394c8f03e515708")
+  let client_scid = bytes_from_hex("f067a5502a4262b5")
+  let server_scid = bytes_from_hex("9abc0123456789ff")
+  let payload = quic_encode_crypto_frame(0, b"server-hello")
+  let initial_packet = quic_build_server_initial_packet(
+    original_dcid, client_scid, server_scid, 0, payload,
+  )
+  let opened = quic_open_server_initial_packet(
+    initial_packet.packet,
+    original_dcid,
+  )
+  inspect(opened.packet_number, content="0")
+  assert_eq(opened.destination_connection_id, client_scid)
+  assert_eq(opened.source_connection_id, server_scid)
+  let (frame, _) = quic_decode_crypto_frame(opened.payload, 0)
+  assert_eq(frame.data, b"server-hello")
+}
+
+///|
+#cfg(target="native")
 test "quic crypto and stream frames round trip" {
   let crypto = quic_encode_crypto_frame(7, b"client-hello")
   let (crypto_frame, crypto_pos) = quic_decode_crypto_frame(crypto, 0)
@@ -624,6 +645,12 @@ test "tls13 processes server handshake and verifies finished" {
   let server_keys = tls13_derive_traffic_keys(
     secrets.server_handshake_traffic_secret,
   )
+  let server_quic_keys = tls13_derive_quic_packet_keys(
+    secrets.server_handshake_traffic_secret,
+  )
+  inspect(server_quic_keys.key.length(), content="16")
+  inspect(server_quic_keys.iv.length(), content="12")
+  inspect(server_quic_keys.hp.length(), content="16")
   let verify_data = tls13_finished_verify_data(
     server_keys.finished_key,
     tls13_transcript_hash([client_hello, server_hello, encrypted_extensions]),

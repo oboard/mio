@@ -187,23 +187,39 @@ fn quic_build_client_initial_packet(
   packet_number : Int,
   payload : Bytes,
 ) -> QuicProtectedPacket raise {
-  let secrets = quic_initial_secrets(destination_connection_id)
-  let key = quic_initial_key(secrets.client_initial_secret)
-  let iv = quic_initial_iv(secrets.client_initial_secret)
-  let hp = quic_initial_hp(secrets.client_initial_secret)
+  quic_build_initial_packet(
+    destination_connection_id,
+    source_connection_id,
+    token,
+    packet_number,
+    payload,
+    quic_initial_packet_keys(destination_connection_id, QuicClientInitial),
+  )
+}
+
+///|
+#cfg(target="native")
+fn quic_build_initial_packet(
+  destination_connection_id : Bytes,
+  source_connection_id : Bytes,
+  token : Bytes,
+  packet_number : Int,
+  payload : Bytes,
+  keys : QuicPacketKeys,
+) -> QuicProtectedPacket raise {
   let protected_payload_length = payload.length() + 16
   let (header, packet_number_offset, packet_number_length) = quic_build_initial_header(
     destination_connection_id, source_connection_id, token, packet_number, protected_payload_length,
   )
-  let nonce = quic_initial_nonce(iv, packet_number)
-  let result = aes128_gcm_encrypt(key, nonce, payload, header)
+  let nonce = quic_initial_nonce(keys.iv, packet_number)
+  let result = aes128_gcm_encrypt(keys.key, nonce, payload, header)
   let unprotected = @buffer.new()
   unprotected.write_bytes(header)
   unprotected.write_bytes(result.ciphertext)
   unprotected.write_bytes(result.tag)
   let packet = quic_apply_initial_header_protection(
     unprotected.contents(),
-    hp,
+    keys.hp,
     packet_number_offset,
     packet_number_length,
   )
@@ -213,6 +229,29 @@ fn quic_build_client_initial_packet(
     packet_number_offset,
     packet_number_length,
   }
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_build_server_initial_packet(
+  original_destination_connection_id : Bytes,
+  destination_connection_id : Bytes,
+  source_connection_id : Bytes,
+  packet_number : Int,
+  payload : Bytes,
+) -> QuicProtectedPacket raise {
+  quic_build_initial_packet(
+    destination_connection_id,
+    source_connection_id,
+    b"",
+    packet_number,
+    payload,
+    quic_initial_packet_keys(
+      original_destination_connection_id,
+      QuicServerInitial,
+    ),
+  )
 }
 
 ///|
@@ -264,13 +303,42 @@ fn quic_open_client_initial_packet(
   packet : Bytes,
   original_destination_connection_id : Bytes,
 ) -> QuicInitialPacket raise {
+  quic_open_initial_packet(
+    packet,
+    quic_initial_packet_keys(
+      original_destination_connection_id,
+      QuicClientInitial,
+    ),
+  )
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_open_server_initial_packet(
+  packet : Bytes,
+  original_destination_connection_id : Bytes,
+) -> QuicInitialPacket raise {
+  quic_open_initial_packet(
+    packet,
+    quic_initial_packet_keys(
+      original_destination_connection_id,
+      QuicServerInitial,
+    ),
+  )
+}
+
+///|
+#cfg(target="native")
+fn quic_open_initial_packet(
+  packet : Bytes,
+  keys : QuicPacketKeys,
+) -> QuicInitialPacket raise {
   let (_, packet_number_offset, _) = quic_initial_packet_number_offset(packet)
-  let secrets = quic_initial_secrets(original_destination_connection_id)
-  let key = quic_initial_key(secrets.client_initial_secret)
-  let iv = quic_initial_iv(secrets.client_initial_secret)
-  let hp = quic_initial_hp(secrets.client_initial_secret)
   let (unprotected, packet_number_length) = quic_remove_initial_header_protection(
-    packet, hp, packet_number_offset,
+    packet,
+    keys.hp,
+    packet_number_offset,
   )
   let long_header = quic_parse_long_header(unprotected)
   let (token_length, token_payload_start) = quic_read_varint(
@@ -305,9 +373,9 @@ fn quic_open_client_initial_packet(
     encrypted_offset + ciphertext_length,
     encrypted_offset + encrypted_length,
   )
-  let nonce = quic_initial_nonce(iv, packet_number)
+  let nonce = quic_initial_nonce(keys.iv, packet_number)
   let plaintext = aes128_gcm_decrypt(
-    key,
+    keys.key,
     nonce,
     ciphertext,
     quic_copy_slice(unprotected, 0, encrypted_offset),
