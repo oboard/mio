@@ -391,3 +391,50 @@ test "x25519 derives rfc7748 public keys and shared secret" {
   )
   assert_eq(alice_shared, bob_shared)
 }
+
+///|
+#cfg(target="native")
+test "tls13 key schedule derives handshake traffic keys" {
+  let shared = bytes_from_hex(
+    "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
+  )
+  let transcript = tls13_transcript_hash([b"clienthello", b"||", b"serverhello"])
+  inspect(
+    @crypto.bytes_to_hex_string(transcript),
+    content="d98be9c5876e397a6beabd1ccbc26d3c739a1fd36bb72a618eb1dab5f588eacb",
+  )
+  let secrets = tls13_derive_handshake_secrets(shared, transcript)
+  inspect(
+    @crypto.bytes_to_hex_string(secrets.early_secret),
+    content="b613679a0814d9ec772f95d778c35fc5ff1697c493715653c6c712144292c5ad",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(secrets.handshake_secret),
+    content="6ba15db66ab3c7ca018f1d419801858133627705680281f983044762f85cb5c3",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(secrets.client_handshake_traffic_secret),
+    content="f919601dad1105788e27075132951d50a026c726583f82d27bdd990fe2ca01ed",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(secrets.server_handshake_traffic_secret),
+    content="84f047c1eab5ad44123a2ed7f4a5a6a449d4e5d05b9bda7490a15ccea2d47885",
+  )
+  let client_keys = tls13_derive_traffic_keys(
+    secrets.client_handshake_traffic_secret,
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(client_keys.key),
+    content="fff07e4f8ee99931eddb1dd042e52248",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(client_keys.iv),
+    content="9870869cbb0cbdeacd8bd931",
+  )
+  inspect(
+    @crypto.bytes_to_hex_string(
+      tls13_finished_verify_data(client_keys.finished_key, transcript),
+    ),
+    content="bc89f311fcefa56402b2e7a196d4e09e2028c7ab33bd20d4692273fdadef9b0f",
+  )
+}
