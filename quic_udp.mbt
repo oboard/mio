@@ -111,3 +111,49 @@ async fn quic_send_h3_request_packet(
   conn.send(packet.packet)
   packet
 }
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+async fn quic_recv_h3_response_packet(
+  conn : @socket.UdpClient,
+  destination_connection_id_length : Int,
+  keys : QuicPacketKeys,
+  stream_id? : Int = 0,
+) -> H3DecodedResponse {
+  let buf = FixedArray::make(4096, b'\x00')
+  let n = conn.recv(buf)
+  let packet = quic_copy_slice(buf.unsafe_reinterpret_as_bytes(), 0, n)
+  quic_decode_h3_response_packets(
+    [packet],
+    destination_connection_id_length,
+    keys,
+    stream_id~,
+  )
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+async fn quic_send_h3_request_and_recv_response(
+  conn : @socket.UdpClient,
+  request_destination_connection_id : Bytes,
+  response_destination_connection_id_length : Int,
+  packet_number : Int,
+  request_keys : QuicPacketKeys,
+  response_keys : QuicPacketKeys,
+  stream_id : Int,
+  headers : Array[(String, String)],
+  body : Bytes,
+) -> H3DecodedResponse {
+  let _ = quic_send_h3_request_packet(
+    conn, request_destination_connection_id, packet_number, request_keys, stream_id,
+    headers, body,
+  )
+  quic_recv_h3_response_packet(
+    conn,
+    response_destination_connection_id_length,
+    response_keys,
+    stream_id~,
+  )
+}

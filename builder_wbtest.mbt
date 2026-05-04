@@ -848,6 +848,79 @@ async test "quic sends h3 request packet over udp" {
 
 ///|
 #cfg(target="native")
+async test "quic sends h3 request and receives response over udp" {
+  let client_keys = tls13_derive_quic_packet_keys(
+    bytes_from_hex(
+      "f919601dad1105788e27075132951d50a026c726583f82d27bdd990fe2ca01ed",
+    ),
+  )
+  let server_keys = tls13_derive_quic_packet_keys(
+    bytes_from_hex(
+      "84f047c1eab5ad44123a2ed7f4a5a6a449d4e5d05b9bda7490a15ccea2d47885",
+    ),
+  )
+  let server_cid = bytes_from_hex("9abc0123456789ff")
+  let client_cid = bytes_from_hex("f067a5502a4262b5")
+  let server = @socket.UdpServer(@socket.Addr::parse("127.0.0.1:0"))
+  @async.with_task_group(group => {
+    group.spawn_bg(() => {
+      let buf = FixedArray::make(4096, b'\x00')
+      let (n, addr) = server.recvfrom(buf)
+      let request_packet = quic_copy_slice(
+        buf.unsafe_reinterpret_as_bytes(),
+        0,
+        n,
+      )
+      let opened = quic_open_short_packet(
+        request_packet,
+        server_cid.length(),
+        client_keys,
+      )
+      let request_stream = quic_collect_stream_data(opened.payload, 0)
+      let request_frames = h3_decode_frames(request_stream)
+      inspect(
+        h3_decode_headers(request_frames[0])[0],
+        content="(\":method\", \"GET\")",
+      )
+      let response_stream = @buffer.new()
+      response_stream.write_bytes(
+        h3_encode_headers([(":status", "200"), ("content-type", "text/plain")]),
+      )
+      response_stream.write_bytes(h3_encode_data(b"ok"))
+      let response_packet = quic_build_short_packet(
+        client_cid,
+        1,
+        quic_encode_stream_frame(0, 0, true, response_stream.contents()),
+        server_keys,
+      )
+      server.sendto(response_packet.packet, addr)
+      server.close()
+    })
+    let conn = @socket.UdpClient(server.addr)
+    defer conn.close()
+    let response = quic_send_h3_request_and_recv_response(
+      conn,
+      server_cid,
+      client_cid.length(),
+      1,
+      client_keys,
+      server_keys,
+      0,
+      [
+        (":method", "GET"),
+        (":scheme", "https"),
+        (":path", "/"),
+        (":authority", "example.com"),
+      ],
+      b"",
+    )
+    inspect(response.status, content="200")
+    inspect(@utf8.decode_lossy(response.body), content="ok")
+  })
+}
+
+///|
+#cfg(target="native")
 test "quic handshake packet round trips with tls keys" {
   let shared = bytes_from_hex(
     "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
