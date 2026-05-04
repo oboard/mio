@@ -68,3 +68,46 @@ async fn quic_send_tls13_client_initial(
     transport_parameters,
   }
 }
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_build_h3_request_packet(
+  destination_connection_id : Bytes,
+  packet_number : Int,
+  keys : QuicPacketKeys,
+  stream_id : Int,
+  headers : Array[(String, String)],
+  body : Bytes,
+) -> QuicProtectedPacket raise {
+  quic_build_short_packet(
+    destination_connection_id,
+    packet_number,
+    quic_encode_stream_frame(
+      stream_id,
+      0,
+      true,
+      h3_encode_request_stream(headers, body),
+    ),
+    keys,
+  )
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+async fn quic_send_h3_request_packet(
+  conn : @socket.UdpClient,
+  destination_connection_id : Bytes,
+  packet_number : Int,
+  keys : QuicPacketKeys,
+  stream_id : Int,
+  headers : Array[(String, String)],
+  body : Bytes,
+) -> QuicProtectedPacket {
+  let packet = quic_build_h3_request_packet(
+    destination_connection_id, packet_number, keys, stream_id, headers, body,
+  )
+  conn.send(packet.packet)
+  packet
+}

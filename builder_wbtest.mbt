@@ -802,6 +802,48 @@ test "quic processes server initial and handshake packets" {
   )
   inspect(result.encrypted_extensions.alpn, content="h3")
   assert_eq(result.server_quic_handshake_keys.key, server_quic_keys.key)
+  inspect(result.client_quic_application_keys.key.length(), content="16")
+  inspect(result.server_quic_application_keys.key.length(), content="16")
+}
+
+///|
+#cfg(target="native")
+async test "quic sends h3 request packet over udp" {
+  let keys = tls13_derive_quic_packet_keys(
+    bytes_from_hex(
+      "f919601dad1105788e27075132951d50a026c726583f82d27bdd990fe2ca01ed",
+    ),
+  )
+  let dcid = bytes_from_hex("9abc0123456789ff")
+  let server = @socket.UdpServer(@socket.Addr::parse("127.0.0.1:0"))
+  @async.with_task_group(group => {
+    group.spawn_bg(() => {
+      let buf = FixedArray::make(1500, b'\x00')
+      let (n, _) = server.recvfrom(buf)
+      let packet = quic_copy_slice(buf.unsafe_reinterpret_as_bytes(), 0, n)
+      let opened = quic_open_short_packet(packet, dcid.length(), keys)
+      let stream_data = quic_collect_stream_data(opened.payload, 0)
+      let frames = h3_decode_frames(stream_data)
+      inspect(h3_decode_headers(frames[0])[0], content="(\":method\", \"GET\")")
+      server.close()
+    })
+    let conn = @socket.UdpClient(server.addr)
+    defer conn.close()
+    let _ = quic_send_h3_request_packet(
+      conn,
+      dcid,
+      1,
+      keys,
+      0,
+      [
+        (":method", "GET"),
+        (":scheme", "https"),
+        (":path", "/"),
+        (":authority", "example.com"),
+      ],
+      b"",
+    )
+  })
 }
 
 ///|

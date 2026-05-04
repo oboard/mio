@@ -23,6 +23,8 @@ priv struct QuicTlsServerHandshakeResult {
   handshake_secrets : Tls13HandshakeSecrets
   server_handshake_keys : Tls13TrafficKeys
   server_quic_handshake_keys : QuicPacketKeys
+  client_quic_application_keys : QuicPacketKeys
+  server_quic_application_keys : QuicPacketKeys
 }
 
 ///|
@@ -139,11 +141,25 @@ fn quic_process_tls13_server_handshake(
     finished_message,
     extra_messages_before_finished=extra_messages,
   )
+  let app_transcript_data = @buffer.new()
+  app_transcript_data.write_bytes(client_hello)
+  app_transcript_data.write_bytes(server_hello_message)
+  app_transcript_data.write_bytes(handshake_crypto.contents())
+  let app_secrets = tls13_derive_application_secrets(
+    handshake_secrets.handshake_secret,
+    tls13_sha256(app_transcript_data.contents()),
+  )
   {
     server_hello: verified.server_hello,
     encrypted_extensions: verified.encrypted_extensions,
     handshake_secrets: verified.handshake_secrets,
     server_handshake_keys: verified.server_handshake_keys,
     server_quic_handshake_keys,
+    client_quic_application_keys: tls13_derive_quic_packet_keys(
+      app_secrets.client_application_traffic_secret,
+    ),
+    server_quic_application_keys: tls13_derive_quic_packet_keys(
+      app_secrets.server_application_traffic_secret,
+    ),
   }
 }
