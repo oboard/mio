@@ -3,6 +3,7 @@
 priv suberror QuicFrameError {
   QuicFrameTruncated
   QuicFrameUnsupported
+  QuicCryptoOutOfOrder
 } derive(Debug, ToJson)
 
 ///|
@@ -196,4 +197,30 @@ fn quic_decode_stream_frame(
     },
     pos + len,
   )
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_collect_crypto_data(payload : Bytes) -> Bytes raise {
+  let out = @buffer.new()
+  for offset = 0; offset < payload.length(); {
+    let (frame_type, _) = quic_read_varint(payload, offset)
+    if frame_type == quic_frame_padding {
+      continue offset + 1
+    } else if frame_type == quic_frame_ping {
+      continue offset + 1
+    } else if frame_type == quic_frame_ack {
+      let (_, next) = quic_decode_ack(payload, offset)
+      continue next
+    } else if frame_type == quic_frame_crypto {
+      let (frame, next) = quic_decode_crypto_frame(payload, offset)
+      guard frame.offset == out.length() else { raise QuicCryptoOutOfOrder }
+      out.write_bytes(frame.data)
+      continue next
+    } else {
+      raise QuicFrameUnsupported
+    }
+  }
+  out.contents()
 }

@@ -114,6 +114,23 @@ fn tls13_handshake_body(message : Bytes, expected_type : Int) -> Bytes raise {
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
+fn tls13_split_handshake_messages(data : Bytes) -> Array[Bytes] raise {
+  let messages = []
+  for offset = 0; offset < data.length(); {
+    guard offset + 4 <= data.length() else { raise Tls13HandshakeTruncated }
+    let len = tls13_read_u24(data, offset + 1)
+    guard offset + 4 + len <= data.length() else {
+      raise Tls13HandshakeTruncated
+    }
+    messages.push(tls13_copy_slice(data, offset, offset + 4 + len))
+    continue offset + 4 + len
+  }
+  messages
+}
+
+///|
+#cfg(target="native")
 fn tls13_parse_extensions(
   data : Bytes,
   offset : Int,

@@ -16,6 +16,17 @@ priv struct Tls13ServerHandshakeResult {
 
 ///|
 #cfg(target="native")
+#warnings("-unused_field")
+priv struct QuicTlsServerHandshakeResult {
+  server_hello : Tls13ServerHello
+  encrypted_extensions : Tls13EncryptedExtensions
+  handshake_secrets : Tls13HandshakeSecrets
+  server_handshake_keys : Tls13TrafficKeys
+  server_quic_handshake_keys : QuicPacketKeys
+}
+
+///|
+#cfg(target="native")
 fn tls13_bytes_equal(a : Bytes, b : Bytes) -> Bool {
   if a.length() != b.length() {
     false
@@ -74,5 +85,65 @@ fn tls13_process_server_handshake(
     encrypted_extensions,
     handshake_secrets,
     server_handshake_keys,
+  }
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_process_tls13_server_handshake(
+  client_private_key : Bytes,
+  client_hello : Bytes,
+  original_destination_connection_id : Bytes,
+  server_initial_packet : Bytes,
+  server_handshake_packets : Array[Bytes],
+) -> QuicTlsServerHandshakeResult raise {
+  let initial = quic_open_server_initial_packet(
+    server_initial_packet, original_destination_connection_id,
+  )
+  let initial_crypto = quic_collect_crypto_data(initial.payload)
+  let server_hello_messages = tls13_split_handshake_messages(initial_crypto)
+  guard server_hello_messages.length() >= 1 else {
+    raise Tls13HandshakeTruncated
+  }
+  let server_hello_message = server_hello_messages[0]
+  let server_hello = tls13_parse_server_hello(server_hello_message)
+  let shared_secret = x25519(client_private_key, server_hello.x25519_public_key)
+  let handshake_secrets = tls13_derive_handshake_secrets(
+    shared_secret,
+    tls13_transcript_hash([client_hello, server_hello_message]),
+  )
+  let server_quic_handshake_keys = tls13_derive_quic_packet_keys(
+    handshake_secrets.server_handshake_traffic_secret,
+  )
+  let handshake_crypto = @buffer.new()
+  for packet in server_handshake_packets {
+    let opened = quic_open_handshake_packet(packet, server_quic_handshake_keys)
+    handshake_crypto.write_bytes(quic_collect_crypto_data(opened.payload))
+  }
+  let handshake_messages = tls13_split_handshake_messages(
+    handshake_crypto.contents(),
+  )
+  guard handshake_messages.length() >= 2 else { raise Tls13HandshakeTruncated }
+  let encrypted_extensions_message = handshake_messages[0]
+  let finished_message = handshake_messages[handshake_messages.length() - 1]
+  let extra_messages = []
+  for i in 1..<(handshake_messages.length() - 1) {
+    extra_messages.push(handshake_messages[i])
+  }
+  let verified = tls13_process_server_handshake(
+    client_private_key,
+    client_hello,
+    server_hello_message,
+    encrypted_extensions_message,
+    finished_message,
+    extra_messages_before_finished=extra_messages,
+  )
+  {
+    server_hello: verified.server_hello,
+    encrypted_extensions: verified.encrypted_extensions,
+    handshake_secrets: verified.handshake_secrets,
+    server_handshake_keys: verified.server_handshake_keys,
+    server_quic_handshake_keys,
   }
 }
