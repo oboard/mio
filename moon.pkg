@@ -51,6 +51,7 @@ options(
     "quic_crypto.mbt": [ "native" ],
     "quic_frame.mbt": [ "native" ],
     "quic_packet.mbt": [ "native" ],
+    "quic_packet_space.mbt": [ "native" ],
     "quic_transport_parameters.mbt": [ "native" ],
     "quic_udp.mbt": [ "native" ],
     "request.mbt": [ "native", "js" ],

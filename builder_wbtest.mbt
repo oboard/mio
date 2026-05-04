@@ -921,6 +921,27 @@ async test "quic sends h3 request and receives response over udp" {
 
 ///|
 #cfg(target="native")
+test "quic packet number spaces track sends and acks" {
+  let spaces = QuicPacketNumberSpaces::new()
+  inspect(spaces.next(QuicInitialSpace), content="0")
+  inspect(spaces.next(QuicInitialSpace), content="1")
+  inspect(spaces.next(QuicHandshakeSpace), content="0")
+  inspect(spaces.next(QuicApplicationSpace), content="0")
+  spaces.record_received(QuicInitialSpace, 4)
+  spaces.record_received(QuicInitialSpace, 2)
+  spaces.record_received(QuicHandshakeSpace, 1)
+  let (initial_ack, _) = quic_decode_ack(spaces.ack_frame(QuicInitialSpace), 0)
+  let (handshake_ack, _) = quic_decode_ack(
+    spaces.ack_frame(QuicHandshakeSpace),
+    0,
+  )
+  inspect(initial_ack.largest_acknowledged, content="4")
+  inspect(handshake_ack.largest_acknowledged, content="1")
+  assert_true((try? spaces.ack_frame(QuicApplicationSpace)) is Err(_))
+}
+
+///|
+#cfg(target="native")
 test "quic handshake packet round trips with tls keys" {
   let shared = bytes_from_hex(
     "4a5d9d5ba4ce2de1728e3bf480350f25e07e21c947d19e3376f09b3c1e161742",
