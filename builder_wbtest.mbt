@@ -568,6 +568,38 @@ test "tls13 parses server hello encrypted extensions and finished" {
 
 ///|
 #cfg(target="native")
+test "tls13 parses certificate and certificate verify" {
+  let cert_entry = @buffer.new()
+  tls13_write_u24(cert_entry, 4)
+  cert_entry.write_bytes(b"cert")
+  tls13_write_u16(cert_entry, 0)
+  let cert_body = @buffer.new()
+  cert_body.write_byte(b'\x00')
+  tls13_write_u24(cert_body, cert_entry.length())
+  cert_body.write_bytes(cert_entry.contents())
+  let cert_message = @buffer.new()
+  cert_message.write_byte(b'\x0b')
+  tls13_write_u24(cert_message, cert_body.length())
+  cert_message.write_bytes(cert_body.contents())
+  let cert = tls13_parse_certificate(cert_message.contents())
+  inspect(cert.entries.length(), content="1")
+  inspect(@utf8.decode_lossy(cert.entries[0].cert_data), content="cert")
+
+  let cv_body = @buffer.new()
+  tls13_write_u16(cv_body, 0x0804)
+  tls13_write_u16(cv_body, 6)
+  cv_body.write_bytes(b"sigval")
+  let cv_message = @buffer.new()
+  cv_message.write_byte(b'\x0f')
+  tls13_write_u24(cv_message, cv_body.length())
+  cv_message.write_bytes(cv_body.contents())
+  let cv = tls13_parse_certificate_verify(cv_message.contents())
+  inspect(cv.signature_scheme, content="2052")
+  inspect(@utf8.decode_lossy(cv.signature), content="sigval")
+}
+
+///|
+#cfg(target="native")
 test "tls13 processes server handshake and verifies finished" {
   let client_private = bytes_from_hex(
     "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
