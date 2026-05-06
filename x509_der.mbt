@@ -5,6 +5,7 @@ priv suberror X509DerError {
   X509DerUnsupported
   X509DerUnexpectedTag
   X509DerMissingField
+  X509HostnameMismatch
 } derive(Debug, ToJson)
 
 ///|
@@ -346,4 +347,51 @@ fn x509_parse_certificate(data : Bytes) -> X509CertificateInfo raise {
     dns_names,
     common_names,
   }
+}
+
+///|
+#cfg(target="native")
+fn x509_string_ends_with(value : String, suffix : String) -> Bool {
+  value.length() >= suffix.length() &&
+  value[value.length() - suffix.length():] == suffix
+}
+
+///|
+#cfg(target="native")
+fn x509_dns_name_matches(pattern : String, host : String) -> Bool {
+  let pattern = pattern.to_lower()
+  let host = host.to_lower()
+  if pattern == host {
+    true
+  } else if pattern.length() > 2 && pattern[:2] == "*." {
+    let suffix = pattern[1:].to_owned()
+    if x509_string_ends_with(host, suffix) {
+      let prefix = host[:host.length() - suffix.length()].to_owned()
+      prefix.length() > 0 && prefix.find(".") is None
+    } else {
+      false
+    }
+  } else {
+    false
+  }
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn x509_verify_hostname(
+  info : X509CertificateInfo,
+  host : String,
+) -> Unit raise {
+  let names = if info.dns_names.length() > 0 {
+    info.dns_names
+  } else {
+    info.common_names
+  }
+  for name in names {
+    if x509_dns_name_matches(name, host) {
+      return
+    }
+  }
+  raise X509HostnameMismatch
 }

@@ -170,6 +170,82 @@ test "x509 parser extracts san and public key" {
 
 ///|
 #cfg(target="native")
+test "x509 verifies dns hostnames" {
+  let parsed = x509_parse_certificate(test_x509_certificate_der())
+  x509_verify_hostname(parsed, "example.com")
+  x509_verify_hostname(parsed, "WWW.EXAMPLE.COM")
+  assert_true((try? x509_verify_hostname(parsed, "api.example.com")) is Err(_))
+  assert_true((try? x509_verify_hostname(parsed, "bad.test")) is Err(_))
+  let wildcard = {
+    tbs_certificate: b"",
+    signature_algorithm: "",
+    signature: b"",
+    public_key_algorithm: "",
+    public_key: b"",
+    dns_names: ["*.example.com"],
+    common_names: [],
+  }
+  x509_verify_hostname(wildcard, "api.example.com")
+  assert_true(
+    (try? x509_verify_hostname(wildcard, "deep.api.example.com")) is Err(_),
+  )
+}
+
+///|
+#cfg(target="native")
+test "rsa pss verifies sha256 signatures" {
+  let public_key = bytes_from_hex(
+    "30818902818100bd06e29d43fb17120a78ac7f50a66c46243f20f31bd48bc682dbeb70fda2c52078f648197d6986441350368df7f736f66212acf263a18aa07048dbc8d0525b69036053dbaae41eae160b678a49dcd0f61b3aeae23e983deb8874ec387183c01078c7fca8b6c4c102e34944f6f6a0216fdfe2b5080afeaa0a7c894c550a3b8e610203010001",
+  )
+  let signature = bytes_from_hex(
+    "75a2f22865433fe3f8247bc06104f27f821aacaf7f2c06ef31bf0033c6e16eb48889ec4efb34f41cd40989e424a8edd684cf57fc802ce2af1871375c57b15fb1a3eaa67438dfeb5069a3c6b103c906bf11eabcde5d063f1a42c6751d5c7eff19e14e16d220a5a21180c659cbcbe9e5fa5354c677c2cc0f2f568bcdc1609b4498",
+  )
+  let message = b"tls certificate verify message"
+  rsa_pss_sha256_verify(public_key, message, signature)
+  assert_true(
+    (try? rsa_pss_sha256_verify(public_key, b"wrong message", signature))
+    is Err(_),
+  )
+}
+
+///|
+#cfg(target="native")
+test "tls13 verifies rsa certificate verify" {
+  let public_key = bytes_from_hex(
+    "30818902818100c9d2e861e65779e523e83d21c7ad4ff3ea98d065ff0ef24da3211f6d05d48a146112bd7032b3d8819d5dc1919dbff23d7470866e15143b057186b230ed192e591e763d2def9d86ec19cdd027831387935b8d8b2cfb581d9282a7e39c344a767cc760a733b30f32a40da302a65288dc45f61bf2133168df955678eed02fcfcb6d0203010001",
+  )
+  let signature = bytes_from_hex(
+    "baa7b54ced11e8165a90786d9e6bcbe0af448d2e0265ef273567c3e48aec788b29d4b4ccea5f2f11ed9eb7db4724ed84441db59591ba784bb0378d2a7416e924dbc04b33742654a28eca3eab45aab9857c5e218480a544b1980ba7f6227d571ba93d55a91a9c53d002f5559f73bd3c95bcc0af62fe2ce26f858a2ffc01635a0e",
+  )
+  let peer_info = {
+    tbs_certificate: b"",
+    signature_algorithm: "",
+    signature: b"",
+    public_key_algorithm: tls13_oid_rsa_encryption,
+    public_key,
+    dns_names: ["example.com"],
+    common_names: [],
+  }
+  let verify = {
+    signature_scheme: tls13_signature_rsa_pss_rsae_sha256,
+    signature,
+  }
+  let transcript_hash = bytes_from_hex(
+    "54e6289e14c7b0e7ad9acc2dfc4c1e3d027d0eef7f5c4c3fe7c292761d0e06a6",
+  )
+  tls13_verify_certificate_verify(peer_info, verify, transcript_hash)
+  assert_true(
+    (try? tls13_verify_certificate_verify(
+      peer_info,
+      verify,
+      tls13_sha256(b"wrong transcript"),
+    ))
+    is Err(_),
+  )
+}
+
+///|
+#cfg(target="native")
 async test "http2 prior knowledge h2c loopback" {
   let server = @socket.TcpServer::new(
     @socket.Addr::parse("127.0.0.1:0"),

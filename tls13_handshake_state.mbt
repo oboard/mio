@@ -2,7 +2,16 @@
 #cfg(target="native")
 priv suberror Tls13HandshakeStateError {
   Tls13FinishedVerifyFailed
+  Tls13UnsupportedSignatureScheme
 } derive(Debug, ToJson)
+
+///|
+#cfg(target="native")
+let tls13_signature_rsa_pss_rsae_sha256 : Int = 0x0804
+
+///|
+#cfg(target="native")
+let tls13_oid_rsa_encryption : String = "1.2.840.113549.1.1.1"
 
 ///|
 #cfg(target="native")
@@ -77,6 +86,7 @@ fn tls13_process_server_handshake(
   )
   let mut certificate = None
   let mut certificate_verify = None
+  let mut certificate_verify_transcript_hash = None
   let before_finished = @buffer.new()
   before_finished.write_bytes(client_hello)
   before_finished.write_bytes(server_hello_message)
@@ -88,6 +98,9 @@ fn tls13_process_server_handshake(
     } else if message.length() > 0 &&
       message[0].to_int() == tls13_handshake_certificate_verify {
       certificate_verify = Some(tls13_parse_certificate_verify(message))
+      certificate_verify_transcript_hash = Some(
+        tls13_sha256(before_finished.contents()),
+      )
     }
     before_finished.write_bytes(message)
   }
@@ -106,6 +119,11 @@ fn tls13_process_server_handshake(
   } else {
     None
   }
+  if peer_certificate_info is Some(peer_info) &&
+    certificate_verify is Some(verify) &&
+    certificate_verify_transcript_hash is Some(transcript_hash) {
+    tls13_verify_certificate_verify(peer_info, verify, transcript_hash)
+  }
   {
     server_hello,
     encrypted_extensions,
@@ -115,6 +133,26 @@ fn tls13_process_server_handshake(
     handshake_secrets,
     server_handshake_keys,
   }
+}
+
+///|
+#cfg(target="native")
+fn tls13_verify_certificate_verify(
+  peer_info : X509CertificateInfo,
+  verify : Tls13CertificateVerify,
+  transcript_hash : Bytes,
+) -> Unit raise {
+  guard verify.signature_scheme == tls13_signature_rsa_pss_rsae_sha256 &&
+    peer_info.public_key_algorithm == tls13_oid_rsa_encryption else {
+    raise Tls13UnsupportedSignatureScheme
+  }
+  rsa_pss_sha256_verify(
+    peer_info.public_key,
+    tls13_certificate_verify_input(
+      "TLS 1.3, server CertificateVerify", transcript_hash,
+    ),
+    verify.signature,
+  )
 }
 
 ///|
