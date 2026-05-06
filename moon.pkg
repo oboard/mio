@@ -66,5 +66,6 @@ options(
     "utils.mbt": [ "native" ],
     "wasm_unused_imports.mbt": [ "wasm" ],
     "x25519.mbt": [ "native" ],
+    "x509_der.mbt": [ "native" ],
   },
 )

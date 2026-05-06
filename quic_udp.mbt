@@ -72,6 +72,55 @@ async fn quic_send_tls13_client_initial(
 ///|
 #cfg(target="native")
 #warnings("-unused_value")
+fn quic_build_tls13_client_finished_packet(
+  destination_connection_id : Bytes,
+  source_connection_id : Bytes,
+  packet_number : Int,
+  keys : QuicPacketKeys,
+  finished_message : Bytes,
+  ack_largest? : Int = -1,
+) -> QuicProtectedPacket raise {
+  let payload = @buffer.new()
+  if ack_largest >= 0 {
+    payload.write_bytes(quic_encode_ack(ack_largest, 0, 0))
+  }
+  payload.write_bytes(quic_encode_crypto_frame(0, finished_message))
+  quic_build_handshake_packet(
+    destination_connection_id,
+    source_connection_id,
+    packet_number,
+    payload.contents(),
+    keys,
+  )
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+async fn quic_send_tls13_client_finished(
+  conn : @socket.UdpClient,
+  destination_connection_id : Bytes,
+  source_connection_id : Bytes,
+  packet_number : Int,
+  keys : QuicPacketKeys,
+  finished_message : Bytes,
+  ack_largest? : Int = -1,
+) -> QuicProtectedPacket {
+  let packet = quic_build_tls13_client_finished_packet(
+    destination_connection_id,
+    source_connection_id,
+    packet_number,
+    keys,
+    finished_message,
+    ack_largest~,
+  )
+  conn.send(packet.packet)
+  packet
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
 fn quic_build_h3_request_packet(
   destination_connection_id : Bytes,
   packet_number : Int,

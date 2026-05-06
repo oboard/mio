@@ -72,6 +72,104 @@ test "hpack decodes huffman strings" {
 
 ///|
 #cfg(target="native")
+fn test_der(tag : Int, payload : Bytes) -> Bytes {
+  let out = @buffer.new()
+  out.write_byte(tag.to_byte())
+  if payload.length() < 0x80 {
+    out.write_byte(payload.length().to_byte())
+  } else if payload.length() <= 0xff {
+    out.write_byte(b'\x81')
+    out.write_byte(payload.length().to_byte())
+  } else {
+    out.write_byte(b'\x82')
+    out.write_byte(((payload.length() >> 8) & 0xff).to_byte())
+    out.write_byte((payload.length() & 0xff).to_byte())
+  }
+  out.write_bytes(payload)
+  out.contents()
+}
+
+///|
+#cfg(target="native")
+fn test_der_join(parts : Array[Bytes]) -> Bytes {
+  let out = @buffer.new()
+  for part in parts {
+    out.write_bytes(part)
+  }
+  out.contents()
+}
+
+///|
+#cfg(target="native")
+fn test_der_sequence(parts : Array[Bytes]) -> Bytes {
+  test_der(x509_tag_sequence, test_der_join(parts))
+}
+
+///|
+#cfg(target="native")
+fn test_x509_certificate_der() -> Bytes {
+  let oid_rsa_encryption = test_der(
+    x509_tag_oid, b"\x2a\x86\x48\x86\xf7\x0d\x01\x01\x01",
+  )
+  let oid_common_name = test_der(x509_tag_oid, b"\x55\x04\x03")
+  let oid_subject_alt_name = test_der(x509_tag_oid, b"\x55\x1d\x11")
+  let null_params = test_der(0x05, b"")
+  let rsa_algorithm = test_der_sequence([oid_rsa_encryption, null_params])
+  let subject = test_der_sequence([
+    test_der(
+      x509_tag_set,
+      test_der_sequence([
+        oid_common_name,
+        test_der(x509_tag_utf8_string, @utf8.encode("example.com")),
+      ]),
+    ),
+  ])
+  let san_names = test_der_sequence([
+    test_der(x509_tag_dns_name, @utf8.encode("example.com")),
+    test_der(x509_tag_dns_name, @utf8.encode("www.example.com")),
+  ])
+  let san_extension = test_der_sequence([
+    oid_subject_alt_name,
+    test_der(x509_tag_octet_string, san_names),
+  ])
+  let extensions = test_der(
+    x509_tag_context_3,
+    test_der_sequence([san_extension]),
+  )
+  let tbs = test_der_sequence([
+    test_der(x509_tag_context_0, test_der(0x02, b"\x02")),
+    test_der(0x02, b"\x01"),
+    rsa_algorithm,
+    test_der_sequence([]),
+    test_der_sequence([]),
+    subject,
+    test_der_sequence([rsa_algorithm, test_der(x509_tag_bit_string, b"\x00key")]),
+    extensions,
+  ])
+  let cert = test_der_sequence([
+    tbs,
+    rsa_algorithm,
+    test_der(x509_tag_bit_string, b"\x00sig"),
+  ])
+  cert
+}
+
+///|
+#cfg(target="native")
+test "x509 parser extracts san and public key" {
+  let cert = test_x509_certificate_der()
+  let parsed = x509_parse_certificate(cert)
+  inspect(parsed.signature_algorithm, content="1.2.840.113549.1.1.1")
+  inspect(parsed.public_key_algorithm, content="1.2.840.113549.1.1.1")
+  inspect(parsed.common_names[0], content="example.com")
+  inspect(parsed.dns_names[1], content="www.example.com")
+  assert_eq(parsed.public_key, b"key")
+  assert_eq(parsed.signature, b"sig")
+  inspect(parsed.tbs_certificate.length() > 0, content="true")
+}
+
+///|
+#cfg(target="native")
 async test "http2 prior knowledge h2c loopback" {
   let server = @socket.TcpServer::new(
     @socket.Addr::parse("127.0.0.1:0"),
@@ -812,9 +910,25 @@ test "quic processes server initial and handshake packets" {
   let server_keys = tls13_derive_traffic_keys(
     secrets.server_handshake_traffic_secret,
   )
+  let cert_der = test_x509_certificate_der()
+  let cert_entry = @buffer.new()
+  tls13_write_u24(cert_entry, cert_der.length())
+  cert_entry.write_bytes(cert_der)
+  tls13_write_u16(cert_entry, 0)
+  let cert_body = @buffer.new()
+  cert_body.write_byte(b'\x00')
+  tls13_write_u24(cert_body, cert_entry.length())
+  cert_body.write_bytes(cert_entry.contents())
+  let cert_message = @buffer.new()
+  cert_message.write_byte(tls13_handshake_certificate.to_byte())
+  tls13_write_u24(cert_message, cert_body.length())
+  cert_message.write_bytes(cert_body.contents())
+  let cert_message = cert_message.contents()
   let verify_data = tls13_finished_verify_data(
     server_keys.finished_key,
-    tls13_transcript_hash([client_hello, server_hello, encrypted_extensions]),
+    tls13_transcript_hash([
+      client_hello, server_hello, encrypted_extensions, cert_message,
+    ]),
   )
   let finished = @buffer.new()
   finished.write_byte(b'\x14')
@@ -822,6 +936,7 @@ test "quic processes server initial and handshake packets" {
   finished.write_bytes(verify_data)
   let handshake_crypto = @buffer.new()
   handshake_crypto.write_bytes(encrypted_extensions)
+  handshake_crypto.write_bytes(cert_message)
   handshake_crypto.write_bytes(finished.contents())
   let server_quic_keys = tls13_derive_quic_packet_keys(
     secrets.server_handshake_traffic_secret,
@@ -841,7 +956,42 @@ test "quic processes server initial and handshake packets" {
     [server_handshake.packet],
   )
   inspect(result.encrypted_extensions.alpn, content="h3")
+  let peer_info = result.peer_certificate_info.unwrap()
+  inspect(peer_info.dns_names[0], content="example.com")
   assert_eq(result.server_quic_handshake_keys.key, server_quic_keys.key)
+  let client_keys = tls13_derive_traffic_keys(
+    secrets.client_handshake_traffic_secret,
+  )
+  assert_eq(result.client_handshake_keys.key, client_keys.key)
+  let expected_client_verify = tls13_finished_verify_data(
+    client_keys.finished_key,
+    tls13_transcript_hash([
+      client_hello,
+      server_hello,
+      handshake_crypto.contents(),
+    ]),
+  )
+  let client_finished = tls13_parse_finished(result.client_finished_message)
+  assert_eq(client_finished.verify_data, expected_client_verify)
+  let client_handshake_packet = quic_build_tls13_client_finished_packet(
+    server_scid,
+    client_scid,
+    0,
+    result.client_quic_handshake_keys,
+    result.client_finished_message,
+    ack_largest=0,
+  )
+  let opened_client_handshake = quic_open_handshake_packet(
+    client_handshake_packet.packet,
+    result.client_quic_handshake_keys,
+  )
+  let (ack, after_ack) = quic_decode_ack(opened_client_handshake.payload, 0)
+  inspect(ack.largest_acknowledged, content="0")
+  let (crypto, _) = quic_decode_crypto_frame(
+    opened_client_handshake.payload,
+    after_ack,
+  )
+  assert_eq(crypto.data, result.client_finished_message)
   inspect(result.client_quic_application_keys.key.length(), content="16")
   inspect(result.server_quic_application_keys.key.length(), content="16")
 }

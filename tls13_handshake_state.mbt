@@ -11,6 +11,7 @@ priv struct Tls13ServerHandshakeResult {
   server_hello : Tls13ServerHello
   encrypted_extensions : Tls13EncryptedExtensions
   certificate : Tls13Certificate?
+  peer_certificate_info : X509CertificateInfo?
   certificate_verify : Tls13CertificateVerify?
   handshake_secrets : Tls13HandshakeSecrets
   server_handshake_keys : Tls13TrafficKeys
@@ -23,10 +24,14 @@ priv struct QuicTlsServerHandshakeResult {
   server_hello : Tls13ServerHello
   encrypted_extensions : Tls13EncryptedExtensions
   certificate : Tls13Certificate?
+  peer_certificate_info : X509CertificateInfo?
   certificate_verify : Tls13CertificateVerify?
   handshake_secrets : Tls13HandshakeSecrets
+  client_handshake_keys : Tls13TrafficKeys
   server_handshake_keys : Tls13TrafficKeys
+  client_quic_handshake_keys : QuicPacketKeys
   server_quic_handshake_keys : QuicPacketKeys
+  client_finished_message : Bytes
   client_quic_application_keys : QuicPacketKeys
   server_quic_application_keys : QuicPacketKeys
 }
@@ -95,14 +100,47 @@ fn tls13_process_server_handshake(
   guard tls13_bytes_equal(expected, finished.verify_data) else {
     raise Tls13FinishedVerifyFailed
   }
+  let peer_certificate_info = if certificate is Some(certificate) &&
+    certificate.entries.length() > 0 {
+    Some(x509_parse_certificate(certificate.entries[0].cert_data))
+  } else {
+    None
+  }
   {
     server_hello,
     encrypted_extensions,
     certificate,
+    peer_certificate_info,
     certificate_verify,
     handshake_secrets,
     server_handshake_keys,
   }
+}
+
+///|
+#cfg(target="native")
+fn tls13_encode_finished(verify_data : Bytes) -> Bytes raise {
+  let out = @buffer.new()
+  out.write_byte(tls13_handshake_finished.to_byte())
+  tls13_write_u24(out, verify_data.length())
+  out.write_bytes(verify_data)
+  out.contents()
+}
+
+///|
+#cfg(target="native")
+fn tls13_build_client_finished(
+  handshake_secrets : Tls13HandshakeSecrets,
+  transcript_through_server_finished : Bytes,
+) -> (Tls13TrafficKeys, Bytes) raise {
+  let client_handshake_keys = tls13_derive_traffic_keys(
+    handshake_secrets.client_handshake_traffic_secret,
+  )
+  let verify_data = tls13_finished_verify_data(
+    client_handshake_keys.finished_key,
+    transcript_through_server_finished,
+  )
+  (client_handshake_keys, tls13_encode_finished(verify_data))
 }
 
 ///|
@@ -160,18 +198,29 @@ fn quic_process_tls13_server_handshake(
   app_transcript_data.write_bytes(client_hello)
   app_transcript_data.write_bytes(server_hello_message)
   app_transcript_data.write_bytes(handshake_crypto.contents())
+  let app_transcript_hash = tls13_sha256(app_transcript_data.contents())
+  let (client_handshake_keys, client_finished_message) = tls13_build_client_finished(
+    handshake_secrets, app_transcript_hash,
+  )
   let app_secrets = tls13_derive_application_secrets(
     handshake_secrets.handshake_secret,
-    tls13_sha256(app_transcript_data.contents()),
+    app_transcript_hash,
+  )
+  let client_quic_handshake_keys = tls13_derive_quic_packet_keys(
+    handshake_secrets.client_handshake_traffic_secret,
   )
   {
     server_hello: verified.server_hello,
     encrypted_extensions: verified.encrypted_extensions,
     certificate: verified.certificate,
+    peer_certificate_info: verified.peer_certificate_info,
     certificate_verify: verified.certificate_verify,
     handshake_secrets: verified.handshake_secrets,
+    client_handshake_keys,
     server_handshake_keys: verified.server_handshake_keys,
+    client_quic_handshake_keys,
     server_quic_handshake_keys,
+    client_finished_message,
     client_quic_application_keys: tls13_derive_quic_packet_keys(
       app_secrets.client_application_traffic_secret,
     ),
