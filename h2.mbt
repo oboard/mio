@@ -5,7 +5,6 @@ pub suberror Http2Error {
   Http2ConnectionError(String)
   Http2StreamReset(Int)
   Http2MissingStatus
-  Http3RequiresQuic
 } derive(Debug, ToJson)
 
 ///|

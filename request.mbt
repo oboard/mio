@@ -87,7 +87,7 @@ async fn perform_request(
       return (response_body.response, response_body.body)
     }
     Http3 => {
-      let response_body = h3_perform_request(uri, meth, headers, body)
+      let response_body = h3_perform_request(uri, meth, headers, body, verify~)
       return (response_body.response, response_body.body)
     }
     Http1 => ()

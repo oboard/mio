@@ -91,3 +91,40 @@ fn quic_parse_long_header(packet : Bytes) -> QuicLongHeader raise {
     payload_offset: scid_start + scid_len,
   }
 }
+
+///|
+#cfg(target="native")
+fn quic_long_packet_end(datagram : Bytes, offset : Int) -> Int raise {
+  let packet = quic_copy_slice(datagram, offset, datagram.length())
+  let long_header = quic_parse_long_header(packet)
+  let (payload_length, packet_number_offset) = if long_header.packet_type == 0 {
+    let (token_length, token_start) = quic_read_varint(
+      packet,
+      long_header.payload_offset,
+    )
+    quic_read_varint(packet, token_start + token_length)
+  } else {
+    quic_read_varint(packet, long_header.payload_offset)
+  }
+  let packet_end = offset + packet_number_offset + payload_length
+  guard packet_end <= datagram.length() else { raise QuicPacketTooShort }
+  packet_end
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_value")
+fn quic_split_datagram(datagram : Bytes) -> Array[Bytes] raise {
+  let packets = []
+  for offset = 0; offset < datagram.length(); {
+    let first = datagram[offset].to_int()
+    let packet_end = if (first & 0x80) != 0 {
+      quic_long_packet_end(datagram, offset)
+    } else {
+      datagram.length()
+    }
+    packets.push(quic_copy_slice(datagram, offset, packet_end))
+    continue packet_end
+  }
+  packets
+}

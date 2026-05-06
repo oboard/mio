@@ -30,6 +30,7 @@ priv struct Tls13ServerHandshakeResult {
 #cfg(target="native")
 #warnings("-unused_field")
 priv struct QuicTlsServerHandshakeResult {
+  server_connection_id : Bytes
   server_hello : Tls13ServerHello
   encrypted_extensions : Tls13EncryptedExtensions
   certificate : Tls13Certificate?
@@ -248,6 +249,7 @@ fn quic_process_tls13_server_handshake(
     handshake_secrets.client_handshake_traffic_secret,
   )
   {
+    server_connection_id: initial.source_connection_id,
     server_hello: verified.server_hello,
     encrypted_extensions: verified.encrypted_extensions,
     certificate: verified.certificate,

@@ -3,6 +3,9 @@
 priv suberror Http3CodecError {
   Http3FrameTruncated
   Http3FrameUnsupported
+  Http3ExpectedHttps
+  Http3HandshakeFailed
+  Http3ResponseIncomplete
 } derive(Debug, ToJson)
 
 ///|
@@ -202,11 +205,169 @@ fn quic_decode_h3_response_packets(
 
 ///|
 #cfg(target="native")
-fn h3_perform_request(
-  _uri : String,
-  _meth : RequestMethod,
-  _headers : Map[String, String],
-  _body : &@io.Data,
-) -> ResponseBody raise {
-  raise Http3RequiresQuic
+fn h3_response_from_decoded(decoded : H3DecodedResponse) -> Response raise {
+  h2_response_from_headers(decoded.headers)
+}
+
+///|
+#cfg(target="native")
+fn h3_request_headers(
+  protocol : Protocol,
+  host : String,
+  path : String,
+  meth : RequestMethod,
+  headers : Map[String, String],
+  body_len : Int,
+) -> Array[(String, String)] {
+  let header_list = []
+  header_list.push((":method", meth.h2_text()))
+  header_list.push(
+    (
+      ":scheme",
+      match protocol {
+        Http => "http"
+        Https => "https"
+      },
+    ),
+  )
+  header_list.push((":authority", host))
+  header_list.push((":path", path))
+  if body_len > 0 {
+    header_list.push(("content-length", body_len.to_string()))
+  }
+  let mut has_accept_encoding = false
+  for item in headers {
+    let (key, value) = item
+    let key = key.to_lower()
+    match key {
+      "connection"
+      | "host"
+      | "keep-alive"
+      | "proxy-connection"
+      | "transfer-encoding"
+      | "upgrade" => ()
+      "accept-encoding" => {
+        has_accept_encoding = true
+        header_list.push((key, value))
+      }
+      _ => header_list.push((key, value))
+    }
+  }
+  if !has_accept_encoding {
+    header_list.push(("accept-encoding", "gzip, deflate, br, zstd"))
+  }
+  header_list
+}
+
+///|
+#cfg(target="native")
+fn h3_random_bytes(len : Int) -> Bytes {
+  let seed = @buffer.new()
+  let now = @async.now()
+  for i in 0..<4 {
+    seed.write_int64_le(now + i.to_int64())
+  }
+  let rand = @random.Rand::chacha8(seed=seed.contents())
+  let out = @buffer.new()
+  for _ in 0..<len {
+    out.write_byte(rand.uint(limit=256U).to_byte())
+  }
+  out.contents()
+}
+
+///|
+#cfg(target="native")
+async fn h3_perform_request_with_config(
+  uri : String,
+  meth : RequestMethod,
+  headers : Map[String, String],
+  body : &@io.Data,
+  verify? : Bool = true,
+  client_private_key~ : Bytes,
+  destination_connection_id~ : Bytes,
+  source_connection_id~ : Bytes,
+  random~ : Bytes,
+  legacy_session_id~ : Bytes,
+) -> ResponseBody {
+  let (protocol, port, host, path) = resolve_url(uri)
+  guard protocol == Https else { raise Http3ExpectedHttps }
+  let addr = @socket.Addr::resolve(host, port~)
+  let conn = @socket.UdpClient(addr)
+  defer conn.close()
+  let initial = quic_send_tls13_client_initial_on_conn(
+    conn, host, destination_connection_id, source_connection_id, client_private_key,
+    random, legacy_session_id,
+  )
+  let handshake = quic_recv_tls13_server_handshake(
+    conn,
+    client_private_key,
+    initial.client_hello,
+    destination_connection_id,
+  )
+  if verify {
+    guard handshake.peer_certificate_info is Some(peer_info) else {
+      raise X509DerMissingField
+    }
+    x509_verify_hostname(peer_info, host)
+  }
+  let _ = quic_send_tls13_client_finished(
+    conn,
+    handshake.server_connection_id,
+    source_connection_id,
+    0,
+    handshake.client_quic_handshake_keys,
+    handshake.client_finished_message,
+    ack_largest=0,
+  )
+  let request_body = body.binary()
+  let request_headers = h3_request_headers(
+    protocol,
+    host,
+    path,
+    meth,
+    headers,
+    request_body.length(),
+  )
+  let request_packet = quic_build_h3_client_request_packet(
+    handshake.server_connection_id,
+    0,
+    handshake.client_quic_application_keys,
+    0,
+    request_headers,
+    request_body,
+    ack_largest=0,
+  )
+  conn.send(request_packet.packet)
+  let decoded = quic_recv_h3_response_loop(
+    conn,
+    source_connection_id.length(),
+    handshake.server_quic_application_keys,
+  )
+  let response = h3_response_from_decoded(decoded)
+  { response, body: h2_decode_body(response, decoded.body) as &@io.Data }
+}
+
+///|
+#cfg(target="native")
+async fn h3_perform_request(
+  uri : String,
+  meth : RequestMethod,
+  headers : Map[String, String],
+  body : &@io.Data,
+  verify? : Bool = true,
+) -> ResponseBody {
+  @async.with_timeout(10000, () => {
+    h3_perform_request_with_config(
+      uri,
+      meth,
+      headers,
+      body,
+      verify~,
+      client_private_key=h3_random_bytes(32),
+      destination_connection_id=h3_random_bytes(8),
+      source_connection_id=h3_random_bytes(8),
+      random=h3_random_bytes(32),
+      legacy_session_id=h3_random_bytes(8),
+    )
+  })
 }

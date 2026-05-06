@@ -1187,6 +1187,209 @@ async test "quic sends h3 request and receives response over udp" {
 
 ///|
 #cfg(target="native")
+async test "h3 perform request completes quic tls loopback" {
+  let original_dcid = bytes_from_hex("8394c8f03e515708")
+  let client_scid = bytes_from_hex("f067a5502a4262b5")
+  let server_scid = bytes_from_hex("9abc0123456789ff")
+  let client_private = bytes_from_hex(
+    "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
+  )
+  let server_private = bytes_from_hex(
+    "5dab087e624a8a4b79e17f8b83800ee66f3bb1292618b6fd1c2f8b27ff88e0eb",
+  )
+  let client_public = x25519_base(client_private)
+  let server_public = x25519_base(server_private)
+  let legacy_session_id = Bytes::make(8, b'\x22')
+  let server = @socket.UdpServer(@socket.Addr::parse("127.0.0.1:0"))
+  @async.with_task_group(group => {
+    group.spawn_bg(() => {
+      let buf = FixedArray::make(4096, b'\x00')
+      let (n, addr) = server.recvfrom(buf)
+      let client_datagram = quic_copy_slice(
+        buf.unsafe_reinterpret_as_bytes(),
+        0,
+        n,
+      )
+      let client_packets = quic_split_datagram(client_datagram)
+      let client_initial = quic_open_client_initial_packet(
+        client_packets[0],
+        original_dcid,
+      )
+      let client_hello = quic_collect_crypto_data(client_initial.payload)
+      let key_share_payload = @buffer.new()
+      tls13_write_u16(key_share_payload, tls13_group_x25519)
+      tls13_write_u16(key_share_payload, server_public.length())
+      key_share_payload.write_bytes(server_public)
+      let sh_extensions = @buffer.new()
+      sh_extensions.write_bytes(
+        tls13_extension(tls13_ext_supported_versions, b"\x03\x04"),
+      )
+      sh_extensions.write_bytes(
+        tls13_extension(tls13_ext_key_share, key_share_payload.contents()),
+      )
+      let sh_body = @buffer.new()
+      tls13_write_u16(sh_body, 0x0303)
+      sh_body.write_bytes(Bytes::make(32, b'\x55'))
+      sh_body.write_byte(legacy_session_id.length().to_byte())
+      sh_body.write_bytes(legacy_session_id)
+      tls13_write_u16(sh_body, 0x1301)
+      sh_body.write_byte(b'\x00')
+      tls13_write_u16(sh_body, sh_extensions.length())
+      sh_body.write_bytes(sh_extensions.contents())
+      let server_hello_buf = @buffer.new()
+      server_hello_buf.write_byte(b'\x02')
+      tls13_write_u24(server_hello_buf, sh_body.length())
+      server_hello_buf.write_bytes(sh_body.contents())
+      let server_hello = server_hello_buf.contents()
+      let server_initial = quic_build_server_initial_packet(
+        original_dcid,
+        client_scid,
+        server_scid,
+        0,
+        quic_encode_crypto_frame(0, server_hello),
+      )
+      server.sendto(server_initial.packet, addr)
+
+      let server_transport_parameters = quic_encode_client_transport_parameters({
+          initial_source_connection_id: server_scid,
+          max_idle_timeout: 30000,
+          max_udp_payload_size: 1200,
+          initial_max_data: 1048576,
+          initial_max_stream_data_bidi_local: 262144,
+          initial_max_stream_data_bidi_remote: 262144,
+          initial_max_stream_data_uni: 262144,
+          initial_max_streams_bidi: 100,
+          initial_max_streams_uni: 3,
+          active_connection_id_limit: 2,
+        },
+      )
+      let ee_extensions = @buffer.new()
+      ee_extensions.write_bytes(
+        tls13_extension(tls13_ext_alpn, b"\x00\x03\x02h3"),
+      )
+      ee_extensions.write_bytes(
+        tls13_extension(
+          tls13_ext_quic_transport_parameters, server_transport_parameters,
+        ),
+      )
+      let ee_body = @buffer.new()
+      tls13_write_u16(ee_body, ee_extensions.length())
+      ee_body.write_bytes(ee_extensions.contents())
+      let encrypted_extensions_buf = @buffer.new()
+      encrypted_extensions_buf.write_byte(b'\x08')
+      tls13_write_u24(encrypted_extensions_buf, ee_body.length())
+      encrypted_extensions_buf.write_bytes(ee_body.contents())
+      let encrypted_extensions = encrypted_extensions_buf.contents()
+      let shared = x25519(server_private, client_public)
+      let secrets = tls13_derive_handshake_secrets(
+        shared,
+        tls13_transcript_hash([client_hello, server_hello]),
+      )
+      let server_handshake_keys = tls13_derive_traffic_keys(
+        secrets.server_handshake_traffic_secret,
+      )
+      let verify_data = tls13_finished_verify_data(
+        server_handshake_keys.finished_key,
+        tls13_transcript_hash([client_hello, server_hello, encrypted_extensions]),
+      )
+      let finished = tls13_encode_finished(verify_data)
+      let handshake_crypto = @buffer.new()
+      handshake_crypto.write_bytes(encrypted_extensions)
+      handshake_crypto.write_bytes(finished)
+      let server_quic_handshake_keys = tls13_derive_quic_packet_keys(
+        secrets.server_handshake_traffic_secret,
+      )
+      let server_handshake = quic_build_handshake_packet(
+        client_scid,
+        server_scid,
+        0,
+        quic_encode_crypto_frame(0, handshake_crypto.contents()),
+        server_quic_handshake_keys,
+      )
+      server.sendto(server_handshake.packet, addr)
+
+      let (n, _) = server.recvfrom(buf)
+      let client_handshake_packet = quic_copy_slice(
+        buf.unsafe_reinterpret_as_bytes(),
+        0,
+        n,
+      )
+      let client_quic_handshake_keys = tls13_derive_quic_packet_keys(
+        secrets.client_handshake_traffic_secret,
+      )
+      let opened_client_handshake = quic_open_handshake_packet(
+        client_handshake_packet, client_quic_handshake_keys,
+      )
+      assert_eq(
+        quic_collect_crypto_data(opened_client_handshake.payload).length(),
+        36,
+      )
+      let app_transcript_data = @buffer.new()
+      app_transcript_data.write_bytes(client_hello)
+      app_transcript_data.write_bytes(server_hello)
+      app_transcript_data.write_bytes(handshake_crypto.contents())
+      let app_transcript_hash = tls13_sha256(app_transcript_data.contents())
+      let app_secrets = tls13_derive_application_secrets(
+        secrets.handshake_secret,
+        app_transcript_hash,
+      )
+      let client_application_keys = tls13_derive_quic_packet_keys(
+        app_secrets.client_application_traffic_secret,
+      )
+      let server_application_keys = tls13_derive_quic_packet_keys(
+        app_secrets.server_application_traffic_secret,
+      )
+
+      let (n, _) = server.recvfrom(buf)
+      let request_packet = quic_copy_slice(
+        buf.unsafe_reinterpret_as_bytes(),
+        0,
+        n,
+      )
+      let request = quic_open_short_packet(
+        request_packet,
+        server_scid.length(),
+        client_application_keys,
+      )
+      let request_stream = quic_collect_stream_data(request.payload, 0)
+      let request_frames = h3_decode_frames(request_stream)
+      inspect(
+        h3_decode_headers(request_frames[0])[0],
+        content="(\":method\", \"GET\")",
+      )
+      let response_stream = @buffer.new()
+      response_stream.write_bytes(
+        h3_encode_headers([(":status", "200"), ("content-type", "text/plain")]),
+      )
+      response_stream.write_bytes(h3_encode_data(b"ok"))
+      let response_packet = quic_build_short_packet(
+        client_scid,
+        0,
+        quic_encode_stream_frame(0, 0, true, response_stream.contents()),
+        server_application_keys,
+      )
+      server.sendto(response_packet.packet, addr)
+      server.close()
+    })
+    let response = h3_perform_request_with_config(
+      "https://127.0.0.1:\{server.addr.port()}/hello",
+      Get,
+      {},
+      b"",
+      verify=false,
+      client_private_key=client_private,
+      destination_connection_id=original_dcid,
+      source_connection_id=client_scid,
+      random=Bytes::make(32, b'\x11'),
+      legacy_session_id~,
+    )
+    inspect(response.response.code, content="200")
+    inspect(response.text(), content="ok")
+  })
+}
+
+///|
+#cfg(target="native")
 test "quic packet number spaces track sends and acks" {
   let spaces = QuicPacketNumberSpaces::new()
   inspect(spaces.next(QuicInitialSpace), content="0")

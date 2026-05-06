@@ -1,5 +1,6 @@
 import {
   "moonbitlang/core/cmp",
+  "moonbitlang/core/random",
   "moonbitlang/core/string",
   "moonbitlang/core/buffer",
   "moonbitlang/core/json",
