@@ -6,7 +6,7 @@ pub let unimplemented : Unit = {
   ignore(@io.pipe)
   ignore(@socket.unimplemented)
   ignore(@tls.unimplemented)
-  ignore(@gzip.Decoder::new)
+  let _ : (&@io.Reader) -> _ = @gzip.Decoder::new
 }
 
 ///|

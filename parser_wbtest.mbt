@@ -504,7 +504,7 @@ async test "gzip split between chunks" {
     let (r, w) = @io.pipe()
     group.spawn_bg(() => {
       defer w.close()
-      @gzip_stream.Encoder(w)..write("A simple message to compress").end()
+      @gzip.Encoder(w)..write("A simple message to compress").end()
     })
     defer r.close()
     r.read_all().binary()

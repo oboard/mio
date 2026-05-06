@@ -268,7 +268,7 @@ fn h2_response_from_headers(
 
 ///|
 #cfg(target="native")
-fn h2_decode_body(response : Response, body : Bytes) -> Bytes raise {
+async fn h2_decode_body(response : Response, body : Bytes) -> Bytes {
   match response.headers.get("content-encoding") {
     Some("gzip") => Gzip.decode(body)
     Some("deflate") => Deflate.decode(body)

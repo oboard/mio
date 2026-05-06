@@ -33,6 +33,41 @@ priv struct Reader {
 ///|
 #cfg(target="native")
 #warnings("-alert_internal")
+priv struct BytesReader {
+  data : Bytes
+  mut offset : Int
+  read_buf : @io.ReaderBuffer
+}
+
+///|
+#cfg(target="native")
+#warnings("-alert_internal")
+fn BytesReader::new(data : Bytes) -> BytesReader {
+  { data, offset: 0, read_buf: @io.ReaderBuffer::new() }
+}
+
+///|
+#cfg(target="native")
+impl @io.Reader for BytesReader with _direct_read(self, dst, offset~, max_len~) {
+  let remaining = self.data.length() - self.offset
+  let len = @cmp.minimum(max_len, remaining)
+  if len > 0 {
+    dst.blit_from_bytes(offset, self.data, self.offset, len)
+    self.offset += len
+  }
+  len
+}
+
+///|
+#cfg(target="native")
+#warnings("-alert_internal")
+impl @io.Reader for BytesReader with _get_internal_buffer(self) {
+  self.read_buf
+}
+
+///|
+#cfg(target="native")
+#warnings("-alert_internal")
 /// Create a new HTTP reader wrapping around existing reader `transport`.
 /// The HTTP reader will read data from `transport`.
 fn[R : @io.Reader] Reader::new(transport : R) -> Reader {
@@ -55,36 +90,16 @@ pub suberror HttpProtocolError {
 
 ///|
 #cfg(target="native")
-fn decode_gzip(data : Bytes) -> Bytes raise {
-  let output = @buffer.new()
-  let output_buf = FixedArray::make(32768, b'\x00')
-  let decoder = @gzip.Decoder::new()
-  for input_offset = 0; !decoder.is_finished(); {
-    let input_len = data.length() - input_offset
-    guard input_len > 0 else { raise BadRequest }
-    let (consumed, produced) = decoder.write(
-      data,
-      input_offset~,
-      input_len~,
-      output_buf,
-      output_len=output_buf.length(),
-    )
-    if produced > 0 {
-      output.write_bytes(output_buf.unsafe_reinterpret_as_bytes()[:produced])
-    }
-    guard consumed > 0 || produced > 0 || decoder.is_finished() else {
-      raise BadRequest
-    }
-    continue input_offset + consumed
-  } nobreak {
-    guard input_offset == data.length() else { raise BadRequest }
+async fn decode_gzip(data : Bytes) -> Bytes {
+  let reader = BytesReader::new(data)
+  @gzip.Decoder::new(reader).read_all().binary() catch {
+    _ => raise BadRequest
   }
-  output.contents()
 }
 
 ///|
 #cfg(target="native")
-fn ContentDecoder::decode(self : ContentDecoder, data : Bytes) -> Bytes raise {
+async fn ContentDecoder::decode(self : ContentDecoder, data : Bytes) -> Bytes {
   match self {
     Gzip => decode_gzip(data)
     Deflate => @flate.decompress(data) catch { _ => raise BadRequest }

@@ -10,11 +10,11 @@ import {
   "moonbitlang/async/io",
   "moonbitlang/async/socket",
   "moonbitlang/async/tls",
+  "moonbitlang/async/gzip",
   "moonbitlang/async/js_async",
   "bikallem/compress/brotli",
   "bikallem/compress/flate",
   "bikallem/compress/zstd",
-  "oboard/mio/compress/gzip" @gzip,
 }
 
 import {
@@ -26,7 +26,6 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/async",
   "moonbitlang/async/fs",
-  "moonbitlang/async/gzip" @gzip_stream,
 } for "wbtest"
 
 warnings = "-29"
