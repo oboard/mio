@@ -87,7 +87,8 @@ fn tls13_supported_groups_extension() -> Bytes raise {
 #cfg(target="native")
 fn tls13_signature_algorithms_extension() -> Bytes raise {
   let payload = @buffer.new()
-  tls13_write_u16(payload, 2)
+  tls13_write_u16(payload, 4)
+  tls13_write_u16(payload, tls13_signature_ecdsa_secp256r1_sha256)
   tls13_write_u16(payload, tls13_signature_rsa_pss_rsae_sha256)
   tls13_extension(0x000d, payload.contents())
 }

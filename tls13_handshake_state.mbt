@@ -11,6 +11,10 @@ let tls13_signature_rsa_pss_rsae_sha256 : Int = 0x0804
 
 ///|
 #cfg(target="native")
+let tls13_signature_ecdsa_secp256r1_sha256 : Int = 0x0403
+
+///|
+#cfg(target="native")
 let tls13_oid_rsa_encryption : String = "1.2.840.113549.1.1.1"
 
 ///|
@@ -71,6 +75,7 @@ fn tls13_process_server_handshake(
   encrypted_extensions_message : Bytes,
   finished_message : Bytes,
   extra_messages_before_finished? : Array[Bytes] = [],
+  verify_certificate? : Bool = true,
 ) -> Tls13ServerHandshakeResult raise {
   let server_hello = tls13_parse_server_hello(server_hello_message)
   let shared_secret = x25519(client_private_key, server_hello.x25519_public_key)
@@ -121,7 +126,8 @@ fn tls13_process_server_handshake(
   } else {
     None
   }
-  if peer_certificate_info is Some(peer_info) &&
+  if verify_certificate &&
+    peer_certificate_info is Some(peer_info) &&
     certificate_verify is Some(verify) &&
     certificate_verify_transcript_hash is Some(transcript_hash) {
     tls13_verify_certificate_verify(peer_info, verify, transcript_hash)
@@ -192,6 +198,7 @@ fn quic_process_tls13_server_handshake(
   original_destination_connection_id : Bytes,
   server_initial_packet : Bytes,
   server_handshake_packets : Array[Bytes],
+  verify_certificate? : Bool = true,
 ) -> QuicTlsServerHandshakeResult raise {
   let initial = quic_open_server_initial_packet(
     server_initial_packet, original_destination_connection_id,
@@ -237,6 +244,7 @@ fn quic_process_tls13_server_handshake(
     encrypted_extensions_message,
     finished_message,
     extra_messages_before_finished=extra_messages,
+    verify_certificate~,
   )
   let app_transcript_data = @buffer.new()
   app_transcript_data.write_bytes(client_hello)

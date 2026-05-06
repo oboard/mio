@@ -211,6 +211,7 @@ async fn quic_recv_tls13_server_handshake(
   client_hello : Bytes,
   original_destination_connection_id : Bytes,
   max_datagrams? : Int = 8,
+  verify_certificate? : Bool = true,
 ) -> QuicTlsServerHandshakeResult {
   let mut server_initial_packet : Bytes? = None
   let server_handshake_packets = []
@@ -227,8 +228,12 @@ async fn quic_recv_tls13_server_handshake(
       server_handshake_packets.length() > 0 {
       try
         quic_process_tls13_server_handshake(
-          client_private_key, client_hello, original_destination_connection_id, initial,
+          client_private_key,
+          client_hello,
+          original_destination_connection_id,
+          initial,
           server_handshake_packets,
+          verify_certificate~,
         )
       catch {
         _ => ()
