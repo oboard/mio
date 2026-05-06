@@ -1351,6 +1351,8 @@ async test "h3 perform request completes quic tls loopback" {
         server_scid.length(),
         client_application_keys,
       )
+      let (first_frame_type, _) = quic_read_varint(request.payload, 0)
+      assert_true(first_frame_type != quic_frame_ack)
       let request_stream = quic_collect_stream_data(request.payload, 0)
       let request_frames = h3_decode_frames(request_stream)
       inspect(

@@ -335,7 +335,6 @@ async fn h3_perform_request_with_config(
     0,
     request_headers,
     request_body,
-    ack_largest=0,
   )
   conn.send(request_packet.packet)
   let decoded = quic_recv_h3_response_loop(
