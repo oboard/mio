@@ -367,7 +367,7 @@ async fn h3_perform_request(
       destination_connection_id=h3_random_bytes(8),
       source_connection_id=h3_random_bytes(8),
       random=h3_random_bytes(32),
-      legacy_session_id=h3_random_bytes(8),
+      legacy_session_id=b"",
     )
   })
 }

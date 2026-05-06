@@ -1199,7 +1199,7 @@ async test "h3 perform request completes quic tls loopback" {
   )
   let client_public = x25519_base(client_private)
   let server_public = x25519_base(server_private)
-  let legacy_session_id = Bytes::make(8, b'\x22')
+  let legacy_session_id = b""
   let server = @socket.UdpServer(@socket.Addr::parse("127.0.0.1:0"))
   @async.with_task_group(group => {
     group.spawn_bg(() => {
