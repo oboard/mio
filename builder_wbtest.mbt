@@ -1302,7 +1302,7 @@ async test "h3 perform request completes quic tls loopback" {
       let server_handshake = quic_build_handshake_packet(
         client_scid,
         server_scid,
-        0,
+        3,
         quic_encode_crypto_frame(0, handshake_crypto.contents()),
         server_quic_handshake_keys,
       )
@@ -1320,6 +1320,11 @@ async test "h3 perform request completes quic tls loopback" {
       let opened_client_handshake = quic_open_handshake_packet(
         client_handshake_packet, client_quic_handshake_keys,
       )
+      let (handshake_ack, _) = quic_decode_ack(
+        opened_client_handshake.payload,
+        0,
+      )
+      inspect(handshake_ack.largest_acknowledged, content="3")
       assert_eq(
         quic_collect_crypto_data(opened_client_handshake.payload).length(),
         36,

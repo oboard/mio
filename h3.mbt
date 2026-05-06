@@ -317,7 +317,7 @@ async fn h3_perform_request_with_config(
     0,
     handshake.client_quic_handshake_keys,
     handshake.client_finished_message,
-    ack_largest=0,
+    ack_largest=handshake.server_handshake_largest_ack,
   )
   let request_body = body.binary()
   let request_headers = h3_request_headers(

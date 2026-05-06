@@ -41,6 +41,7 @@ priv struct QuicTlsServerHandshakeResult {
   server_handshake_keys : Tls13TrafficKeys
   client_quic_handshake_keys : QuicPacketKeys
   server_quic_handshake_keys : QuicPacketKeys
+  server_handshake_largest_ack : Int
   client_finished_message : Bytes
   client_quic_application_keys : QuicPacketKeys
   server_quic_application_keys : QuicPacketKeys
@@ -211,8 +212,12 @@ fn quic_process_tls13_server_handshake(
     handshake_secrets.server_handshake_traffic_secret,
   )
   let handshake_crypto = @buffer.new()
+  let mut server_handshake_largest_ack = -1
   for packet in server_handshake_packets {
     let opened = quic_open_handshake_packet(packet, server_quic_handshake_keys)
+    if opened.packet_number > server_handshake_largest_ack {
+      server_handshake_largest_ack = opened.packet_number
+    }
     handshake_crypto.write_bytes(quic_collect_crypto_data(opened.payload))
   }
   let handshake_messages = tls13_split_handshake_messages(
@@ -260,6 +265,7 @@ fn quic_process_tls13_server_handshake(
     server_handshake_keys: verified.server_handshake_keys,
     client_quic_handshake_keys,
     server_quic_handshake_keys,
+    server_handshake_largest_ack,
     client_finished_message,
     client_quic_application_keys: tls13_derive_quic_packet_keys(
       app_secrets.client_application_traffic_secret,
