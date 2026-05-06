@@ -1,15 +1,15 @@
 {
   "name": "oboard/mio",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "deps": {
     "moonbitlang/x": "0.4.43",
     "moonbitlang/async": "0.18.1",
     "bikallem/compress": "0.3.4"
   },
   "readme": "README.mbt.md",
-  "repository": "",
+  "repository": "https://github.com/oboard/mio",
   "license": "Apache-2.0",
-  "keywords": [],
-  "description": "",
+  "keywords": ["network", "async", "http"],
+  "description": "Best async http library for Moonbit",
   "preferred-target": "native"
 }
