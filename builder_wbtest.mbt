@@ -1190,6 +1190,7 @@ async test "quic sends h3 request and receives response over udp" {
 async test "h3 perform request completes quic tls loopback" {
   let original_dcid = bytes_from_hex("8394c8f03e515708")
   let client_scid = bytes_from_hex("f067a5502a4262b5")
+  let retry_scid = bytes_from_hex("1122334455667788")
   let server_scid = bytes_from_hex("9abc0123456789ff")
   let client_private = bytes_from_hex(
     "77076d0a7318a57d3c16c17251b26645df4c2f87ebc0992ab177fba51db92c2a",
@@ -1215,7 +1216,27 @@ async test "h3 perform request completes quic tls loopback" {
         client_packets[0],
         original_dcid,
       )
+      let first_client_hello = quic_collect_crypto_data(client_initial.payload)
+      let retry_token = b"retry-token"
+      let retry = quic_build_retry_packet(
+        original_dcid, client_scid, retry_scid, retry_token,
+      )
+      server.sendto(retry, addr)
+
+      let (n, _) = server.recvfrom(buf)
+      let retried_datagram = quic_copy_slice(
+        buf.unsafe_reinterpret_as_bytes(),
+        0,
+        n,
+      )
+      let retried_packets = quic_split_datagram(retried_datagram)
+      let client_initial = quic_open_client_initial_packet(
+        retried_packets[0],
+        retry_scid,
+      )
+      assert_eq(client_initial.token, retry_token)
       let client_hello = quic_collect_crypto_data(client_initial.payload)
+      assert_eq(client_hello, first_client_hello)
       let key_share_payload = @buffer.new()
       tls13_write_u16(key_share_payload, tls13_group_x25519)
       tls13_write_u16(key_share_payload, server_public.length())
@@ -1242,7 +1263,7 @@ async test "h3 perform request completes quic tls loopback" {
       server_hello_buf.write_bytes(sh_body.contents())
       let server_hello = server_hello_buf.contents()
       let server_initial = quic_build_server_initial_packet(
-        original_dcid,
+        retry_scid,
         client_scid,
         server_scid,
         0,

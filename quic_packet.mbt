@@ -4,6 +4,7 @@ priv suberror QuicPacketProtectionError {
   QuicPacketNumberTooLarge
   QuicPacketNumberLengthInvalid
   QuicProtectedPayloadTooShort
+  QuicRetryIntegrityFailed
 } derive(Debug, ToJson)
 
 ///|
@@ -25,6 +26,16 @@ priv struct QuicInitialPacket {
   token : Bytes
   packet_number : Int
   payload : Bytes
+}
+
+///|
+#cfg(target="native")
+#warnings("-unused_field")
+priv struct QuicRetryPacket {
+  destination_connection_id : Bytes
+  source_connection_id : Bytes
+  token : Bytes
+  integrity_tag : Bytes
 }
 
 ///|
@@ -299,6 +310,85 @@ fn quic_build_client_initial_packet(
 
 ///|
 #cfg(target="native")
+#warnings("-unused_value")
+fn quic_build_retry_packet(
+  original_destination_connection_id : Bytes,
+  destination_connection_id : Bytes,
+  source_connection_id : Bytes,
+  token : Bytes,
+) -> Bytes raise {
+  let out = @buffer.new()
+  out.write_byte(b'\xf0')
+  out.write_bytes(b"\x00\x00\x00\x01")
+  out.write_byte(destination_connection_id.length().to_byte())
+  out.write_bytes(destination_connection_id)
+  out.write_byte(source_connection_id.length().to_byte())
+  out.write_bytes(source_connection_id)
+  out.write_bytes(token)
+  out.write_bytes(
+    quic_retry_integrity_tag(original_destination_connection_id, out.contents()),
+  )
+  out.contents()
+}
+
+///|
+#cfg(target="native")
+fn quic_retry_integrity_tag(
+  original_destination_connection_id : Bytes,
+  retry_without_tag : Bytes,
+) -> Bytes raise {
+  let pseudo = @buffer.new()
+  pseudo.write_byte(original_destination_connection_id.length().to_byte())
+  pseudo.write_bytes(original_destination_connection_id)
+  pseudo.write_bytes(retry_without_tag)
+  let result = aes128_gcm_encrypt(
+    bytes_from_hex("be0c690b9f66575a1d766b54e368c84e"),
+    bytes_from_hex("461599d35d632bf2239825bb"),
+    b"",
+    pseudo.contents(),
+  )
+  result.tag
+}
+
+///|
+#cfg(target="native")
+fn quic_parse_retry_packet(
+  packet : Bytes,
+  original_destination_connection_id? : Bytes = b"",
+) -> QuicRetryPacket raise {
+  let long_header = quic_parse_long_header(packet)
+  guard long_header.packet_type == 3 else { raise QuicPacketTooShort }
+  guard packet.length() >= long_header.payload_offset + 16 else {
+    raise QuicPacketTooShort
+  }
+  if original_destination_connection_id.length() > 0 {
+    let expected = quic_retry_integrity_tag(
+      original_destination_connection_id,
+      quic_copy_slice(packet, 0, packet.length() - 16),
+    )
+    let actual = quic_copy_slice(packet, packet.length() - 16, packet.length())
+    guard tls13_bytes_equal(expected, actual) else {
+      raise QuicRetryIntegrityFailed
+    }
+  }
+  {
+    destination_connection_id: long_header.destination_connection_id,
+    source_connection_id: long_header.source_connection_id,
+    token: quic_copy_slice(
+      packet,
+      long_header.payload_offset,
+      packet.length() - 16,
+    ),
+    integrity_tag: quic_copy_slice(
+      packet,
+      packet.length() - 16,
+      packet.length(),
+    ),
+  }
+}
+
+///|
+#cfg(target="native")
 fn quic_build_initial_packet(
   destination_connection_id : Bytes,
   source_connection_id : Bytes,
@@ -411,11 +501,12 @@ fn quic_build_client_initial_datagram(
   source_connection_id : Bytes,
   packet_number : Int,
   crypto_data : Bytes,
+  token? : Bytes = b"",
 ) -> QuicProtectedPacket raise {
   let crypto_frame = quic_encode_crypto_frame(0, crypto_data)
   let mut payload = crypto_frame
   let mut packet = quic_build_client_initial_packet(
-    destination_connection_id, source_connection_id, b"", packet_number, payload,
+    destination_connection_id, source_connection_id, token, packet_number, payload,
   )
   while packet.packet.length() < 1200 {
     let padded = @buffer.new()
@@ -423,7 +514,7 @@ fn quic_build_client_initial_datagram(
     padded.write_bytes(quic_encode_padding(1200 - packet.packet.length()))
     payload = padded.contents()
     packet = quic_build_client_initial_packet(
-      destination_connection_id, source_connection_id, b"", packet_number, payload,
+      destination_connection_id, source_connection_id, token, packet_number, payload,
     )
   }
   packet

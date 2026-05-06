@@ -304,6 +304,7 @@ async fn h3_perform_request_with_config(
     initial.client_hello,
     destination_connection_id,
     verify_certificate=verify,
+    retry_source_connection_id=source_connection_id,
   )
   if verify {
     guard handshake.peer_certificate_info is Some(peer_info) else {

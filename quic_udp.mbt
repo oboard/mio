@@ -80,6 +80,7 @@ async fn quic_send_tls13_client_initial_on_conn(
   client_private_key : Bytes,
   random : Bytes,
   legacy_session_id : Bytes,
+  token? : Bytes = b"",
 ) -> QuicTlsClientInitial {
   let client_public_key = x25519_base(client_private_key)
   let transport_parameters = quic_encode_client_transport_parameters({
@@ -103,7 +104,11 @@ async fn quic_send_tls13_client_initial_on_conn(
     transport_parameters,
   })
   let datagram = quic_build_client_initial_datagram(
-    destination_connection_id, source_connection_id, 0, client_hello,
+    destination_connection_id,
+    source_connection_id,
+    0,
+    client_hello,
+    token~,
   )
   conn.send(datagram.packet)
   { datagram, client_hello, client_public_key, transport_parameters }
@@ -212,13 +217,35 @@ async fn quic_recv_tls13_server_handshake(
   original_destination_connection_id : Bytes,
   max_datagrams? : Int = 8,
   verify_certificate? : Bool = true,
+  retry_source_connection_id? : Bytes = b"",
 ) -> QuicTlsServerHandshakeResult {
+  let mut initial_destination_connection_id = original_destination_connection_id
   let mut server_initial_packet : Bytes? = None
   let server_handshake_packets = []
+  let mut retried = false
   for _ in 0..<max_datagrams {
     for packet in quic_recv_datagram_packets(conn) {
       let long_header = quic_parse_long_header(packet) catch { _ => continue }
-      if long_header.packet_type == 0 && server_initial_packet is None {
+      if long_header.packet_type == 3 &&
+        !retried &&
+        retry_source_connection_id.length() > 0 {
+        let retry = quic_parse_retry_packet(
+          packet,
+          original_destination_connection_id~,
+        )
+        let retry_initial = quic_build_client_initial_datagram(
+          retry.source_connection_id,
+          retry_source_connection_id,
+          0,
+          client_hello,
+          token=retry.token,
+        )
+        conn.send(retry_initial.packet)
+        initial_destination_connection_id = retry.source_connection_id
+        retried = true
+        server_initial_packet = None
+        server_handshake_packets.clear()
+      } else if long_header.packet_type == 0 && server_initial_packet is None {
         server_initial_packet = Some(packet)
       } else if long_header.packet_type == 2 {
         server_handshake_packets.push(packet)
@@ -230,7 +257,7 @@ async fn quic_recv_tls13_server_handshake(
         quic_process_tls13_server_handshake(
           client_private_key,
           client_hello,
-          original_destination_connection_id,
+          initial_destination_connection_id,
           initial,
           server_handshake_packets,
           verify_certificate~,

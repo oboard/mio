@@ -97,6 +97,9 @@ fn quic_parse_long_header(packet : Bytes) -> QuicLongHeader raise {
 fn quic_long_packet_end(datagram : Bytes, offset : Int) -> Int raise {
   let packet = quic_copy_slice(datagram, offset, datagram.length())
   let long_header = quic_parse_long_header(packet)
+  if long_header.packet_type == 3 {
+    return datagram.length()
+  }
   let (payload_length, packet_number_offset) = if long_header.packet_type == 0 {
     let (token_length, token_start) = quic_read_varint(
       packet,
