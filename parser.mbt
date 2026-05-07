@@ -344,28 +344,34 @@ async fn Reader::read_headers(
 /// - Status code is not 1xx, 204, 205, or 304 (which MUST NOT have a message body)
 /// - Not a successful (2xx) response to a CONNECT request (which becomes a tunnel)
 /// - Not a response to a HEAD request (which never has a message body)
+#warnings("-unused_value")
 fn should_read_body_until_close(
   code : Int,
   headers : Map[String, String],
   current_body : BodyKind,
   request_method : RequestMethod?,
 ) -> Bool {
-  // HEAD responses never have a message body, regardless of headers
-  if request_method is Some(Head) {
-    return false
-  }
-  // Successful CONNECT responses (2xx) switch connection to tunnel mode
-  // and have no HTTP message body
-  if request_method is Some(Connect) && code >= 200 && code < 300 {
+  if response_must_be_bodyless(code, request_method) {
     return false
   }
   current_body is Empty &&
   headers.get("content-length") is None &&
   headers.get("transfer-encoding") is None &&
-  code >= 200 &&
-  code != 204 &&
-  code != 205 &&
-  code != 304
+  code >= 200
+}
+
+///|
+#cfg(target="native")
+fn response_must_be_bodyless(
+  code : Int,
+  request_method : RequestMethod?,
+) -> Bool {
+  request_method is Some(Head) ||
+  (request_method is Some(Connect) && code >= 200 && code < 300) ||
+  code < 200 ||
+  code == 204 ||
+  code == 205 ||
+  code == 304
 }
 
 ///|
@@ -405,7 +411,13 @@ async fn Reader::read_response(
 
   // HTTP/1.1 Spec (RFC 7230 Section 3.3.3): Message Body Length Determination
   // Other cases are handled in `read_headers` when parsing the headers, which will set the body kind accordingly.
-  if should_read_body_until_close(code, headers, self.body, request_method) {
+  let bodyless = response_must_be_bodyless(code, request_method)
+  if bodyless {
+    self.body = Empty
+  } else if self.body is Empty &&
+    headers.get("content-length") is None &&
+    headers.get("transfer-encoding") is None &&
+    code >= 200 {
     self.body = WaitConnectionClose // Read until connection close
   }
 

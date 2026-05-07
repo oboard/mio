@@ -16,6 +16,7 @@ const clients = [
     command: "moon",
     args: [
       "run",
+      "--release",
       "benchmarks/clients/mio",
       "--",
       "--url",
@@ -24,6 +25,8 @@ const clients = [
       String(requests),
       "--warmup",
       String(warmup),
+      "--payload-bytes",
+      String(payloadBytes),
     ],
   },
   {

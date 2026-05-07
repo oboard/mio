@@ -12,6 +12,7 @@ in the [MoonBit benchmark guide](https://docs.moonbitlang.cn/language/benchmarks
 The cross-runtime benchmark starts one local HTTP/1.1 server, then runs each
 client against the same URL with the same request and warmup counts. Every
 client performs sequential GET requests and reads the full response body.
+The `mio` and `hyper` clients are run in release mode.
 
 ## Run
 

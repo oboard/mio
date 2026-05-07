@@ -261,9 +261,11 @@ async fn Sender::send_headers(
   self : Sender,
   headers : Map[String, String],
 ) -> Int64? {
+  if headers.is_empty() {
+    return None
+  }
   let mut content_length = None
-  for pair in headers.to_array() {
-    let (k, v) = pair
+  for k, v in headers {
     let k_lower = k.to_lower()
     if k_lower is "content-length" {
       let len = @string.parse_int64(v.trim(), base=10)
@@ -274,6 +276,17 @@ async fn Sender::send_headers(
     self..write(k)..write(": ")..write(v).write("\r\n")
   }
   content_length
+}
+
+///|
+#cfg(target="native")
+fn headers_has_accept_encoding(headers : Map[String, String]) -> Bool {
+  for k, _ in headers {
+    if k.to_lower() is "accept-encoding" {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -304,8 +317,7 @@ async fn Sender::send_request(
     ..write(self.headers)
     .send_headers(extra_headers)
   let auto_decompress = !self.has_accept_encoding &&
-    extra_headers.keys().find_first(k => k.to_lower() is "accept-encoding")
-    is None
+    !headers_has_accept_encoding(extra_headers)
   if auto_decompress {
     self.write("Accept-Encoding: gzip, deflate, br, zstd, identity\r\n")
   }
