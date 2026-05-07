@@ -3,7 +3,7 @@
 A MoonBit HTTP networking library with native HTTP/1.1, experimental HTTP/2
 and HTTP/3 transports, and JavaScript Fetch support.
 
-[![Version](https://img.shields.io/badge/version-0.5.0-blue.svg)](https://github.com/oboard/mio)
+[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A//mooncakes.io/assets/oboard/mio/resource.json&query=%24.meta_info.version&label=mooncakes&color=yellow)](https://mooncakes.io/docs/oboard/mio)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
 ## Features
@@ -25,12 +25,8 @@ and HTTP/3 transports, and JavaScript Fetch support.
 
 Add to your `moon.mod.json`:
 
-```json
-{
-  "deps": {
-    "oboard/mio": "0.5.0"
-  }
-}
+```bash
+moon add oboard/mio
 ```
 
 ## Quick Start
