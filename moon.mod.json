@@ -1,6 +1,6 @@
 {
   "name": "oboard/mio",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "deps": {
     "moonbitlang/x": "0.4.43",
     "moonbitlang/async": "0.18.1",
