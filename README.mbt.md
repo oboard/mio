@@ -3,7 +3,7 @@
 A MoonBit HTTP networking library with native HTTP/1.1, experimental HTTP/2
 and HTTP/3 transports, and JavaScript Fetch support.
 
-[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A//mooncakes.io/assets/oboard/mio/resource.json&query=%24.meta_info.version&label=mooncakes&color=yellow)](https://mooncakes.io/docs/oboard/mio)
+[![Version](https://img.shields.io/badge/dynamic/json?url=https%3A//mooncakes.io/api/v0/manifest/oboard/mio&query=%24.latest_version&label=mooncakes&color=yellow)](https://mooncakes.io/docs/oboard/mio)
 [![License](https://img.shields.io/badge/license-Apache--2.0-green.svg)](LICENSE)
 
 ## Features
