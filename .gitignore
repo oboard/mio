@@ -2,3 +2,5 @@
 _build/
 .mooncakes/
 .moonagent/
+benchmarks/clients/hyper/target/
+benchmarks/clients/hyper/Cargo.lock

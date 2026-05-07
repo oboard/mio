@@ -1,0 +1,16 @@
+import {
+  "oboard/mio" @mio_client,
+  "moonbitlang/core/bench",
+  "moonbitlang/core/env",
+  "moonbitlang/core/string",
+  "moonbitlang/async",
+  "moonbitlang/async/io",
+}
+
+warnings = "-29"
+
+supported_targets = "+native"
+
+options(
+  "is-main": true,
+)

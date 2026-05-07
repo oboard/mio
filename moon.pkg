@@ -23,6 +23,7 @@ import {
 } for "test"
 
 import {
+  "moonbitlang/core/bench",
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/async",
   "moonbitlang/async/fs",
@@ -33,6 +34,7 @@ warnings = "-29"
 options(
   targets: {
     "aes128.mbt": [ "native" ],
+    "bench_wbtest.mbt": [ "native" ],
     "builder.mbt": [ "native", "js" ],
     "builder_wbtest.mbt": [ "native", "js" ],
     "client.js.mbt": [ "js" ],
